@@ -1,2 +1,5 @@
 .idea/
 .env
+dating_app.db
+__pycache__/
+*.py[cod]
