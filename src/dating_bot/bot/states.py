@@ -11,3 +11,10 @@ class Profile(StatesGroup):
     photo = State()
     confirm = State()
     edit_field = State()
+
+class PsychologicalTest(StatesGroup):
+    welcome = State()          
+    in_progress = State()    
+    paused = State()           
+    results = State()          
+    confirm_retake = State()

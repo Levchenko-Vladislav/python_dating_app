@@ -1,8 +1,8 @@
 from aiogram import Router, F
 from aiogram.types import Message, ReplyKeyboardRemove
 from aiogram.fsm.context import FSMContext
-from dating_bot.bot.states import Profile
-from dating_bot.bot.keyboards import gender_kb, goal_kb, target_gender_kb,confirm_kb,test_ready_kb, edit_menu_kb
+from dating_bot.bot.states import Profile, PsychologicalTest
+from dating_bot.bot.keyboards import gender_kb, goal_kb, target_gender_kb,confirm_kb,test_ready_kb, edit_menu_kb, main_menu_kb
 
 router = Router()
 
@@ -111,7 +111,7 @@ async def get_target_gender(message: Message, state: FSMContext):
         await send_profile_preview(message, state)
         await state.set_state(Profile.confirm)
         return
-    await message.answer("Ещё - чуть-чуть! Напиши свой ник в Telegram\n (например: @username)")
+    await message.answer("Ещё чуть-чуть! Напиши свой ник в Telegram\n (например: @username)")
     await state.set_state(Profile.username)
 
 @router.message(Profile.username, F.text)
@@ -196,23 +196,31 @@ async def confirm_profile(message: Message, state: FSMContext):
         "Готов(а) начать 🙂?",
         reply_markup=test_ready_kb()
     )
-    await state.update_data(is_edit=False)
-    await state.clear()
+    await state.update_data(is_edit=False, test_completed=False)
 
-@router.message(F.text.in_(["📝 Да!"]))
-async def start_test(message: Message, state: FSMContext):
-    await message.answer(
-        "Отлично ✨ Тогда начнём тест.\nПервый вопрос...",
-        reply_markup = ReplyKeyboardRemove()
-    )
+@router.message(Profile.confirm, F.text == "📝 Да!")
+async def start_test_from_confirm(message: Message, state: FSMContext):
+    from src.dating_bot.handlers.psychological_test import start_test_command
+    await start_test_command(message, state)
 
+@router.message(PsychologicalTest.welcome, F.text == "⏳ Не сейчас")
 @router.message(F.text.in_(["⏳ Позже"]))
-async def postpone_test(message: Message):
-    await message.answer(
-        "Когда будешь готов(а) — просто напиши /start 🙂",
-        reply_markup=ReplyKeyboardRemove()
-    )
+async def postpone_test(message: Message, state: FSMContext):
+    data = await state.get_data()
+    if data.get("name"):  
+        from src.dating_bot.bot.keyboards import main_menu_kb
+        await message.answer(
+            "✅ Твой профиль сохранен!\n\n"
+            "Что хочешь сделать?",
+            reply_markup=main_menu_kb()
+        )
+    else:  
+        await message.answer(
+            "Хорошо 🙂 Когда будешь готов(а) — напиши /start",
+            reply_markup=ReplyKeyboardRemove()
+        )
 
+@router.message(F.text == "✏️ Редактировать профиль")
 @router.message(Profile.confirm, F.text == "✏️ Изменить")
 async def edit_start(message: Message, state: FSMContext):
     await state.update_data(is_edit=True)

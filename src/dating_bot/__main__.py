@@ -3,7 +3,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from dating_bot.config import BOT_TOKEN
-from dating_bot.handlers import start, profile
+from dating_bot.handlers import start, profile, psychological_test, menu
 
 
 
@@ -13,6 +13,8 @@ async def main():
 
     dp.include_router(start.router)
     dp.include_router(profile.router)
+    dp.include_router(psychological_test.router)
+    dp.include_router(menu.router)
     await dp.start_polling(bot)
 
 
