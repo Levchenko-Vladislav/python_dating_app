@@ -9,11 +9,13 @@ class User(Base):
     __tablename__ = 'users'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    telegram_id = Column(Integer, unique=True, nullable=False)
+    telegram_id = Column(String(100), unique=True, nullable=False)  # Telegram ID как строка
+    username = Column(String(100), nullable=True)  # Telegram username с @
     name = Column(String(100), nullable=False)
     age = Column(Integer, nullable=True)
     photo_id = Column(String(500))
     city = Column(String(100))
+    goal = Column(String(20))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     is_active = Column(Boolean, default=True, nullable=False)
     sex = Column(String(10))
@@ -23,4 +25,4 @@ class User(Base):
     max_age = Column(Integer, default=100)
 
     def __repr__(self):
-        return f"<User(id = {self.id}, name = '{self.name}', telegram_id = {self.telegram_id})>"
+        return f"<User(id={self.id}, name='{self.name}', telegram_id='{self.telegram_id}', username='{self.username}')>"

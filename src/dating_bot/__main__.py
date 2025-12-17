@@ -2,8 +2,8 @@ import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from dating_bot.config import BOT_TOKEN
-from dating_bot.handlers import start, profile, psychological_test, menu
+from src.dating_bot.config import BOT_TOKEN
+from src.dating_bot.handlers import start, profile, psychological_test, menu
 
 
 

@@ -1,10 +1,16 @@
 from aiogram import Router, F
 from aiogram.types import Message, ReplyKeyboardRemove
 from aiogram.fsm.context import FSMContext
-from dating_bot.bot.states import Profile, PsychologicalTest
-from dating_bot.bot.keyboards import gender_kb, goal_kb, target_gender_kb,confirm_kb,test_ready_kb, edit_menu_kb, main_menu_kb
+from src.dating_bot.bot.states import Profile, PsychologicalTest
+from src.dating_bot.bot.keyboards import (gender_kb, goal_kb, target_gender_kb,confirm_kb,test_ready_kb,
+                                      edit_menu_kb, username_kb,main_menu_kb)
+from src.dating_bot.services.user_service import UserService
+from src.dating_bot.utils.data_mappers import map_gender_to_db, map_target_gender_to_db
+from src.dating_bot.utils.data_mappers import map_goal_to_db, map_goal_to_ui
+from src.dating_bot.handlers.psychological_test import start_test_command
 
 router = Router()
+
 
 async def send_profile_preview(message: Message, state: FSMContext):
     data = await state.get_data()
@@ -12,27 +18,64 @@ async def send_profile_preview(message: Message, state: FSMContext):
         photo=data["photo_id"],
         caption=(
             "Проверь анкету 🙂\n\n"
-            f"👤 Имя: {data.get('name','')}\n"
-            f"🎂 Возраст: {data.get('age','')}\n"
-            f"⚧ Пол: {data.get('gender','')}\n"
-            f"📍 Город: {data.get('city','')}\n"
-            f"🎯 Цель: {data.get('goal','')}\n"
-            f"🔍 Кого ищешь: {data.get('target_gender','')}\n"
-            f"💬 Ник: {data.get('username','')}\n\n"
+            f"👤 Имя: {data.get('name', '')}\n"
+            f"🎂 Возраст: {data.get('age', '')}\n"
+            f"⚧ Пол: {data.get('gender', '')}\n"
+            f"📍 Город: {data.get('city', '')}\n"
+            f"🎯 Цель: {data.get('goal', '')}\n"
+            f"🔍 Кого ищешь: {data.get('target_gender', '')}\n"
+            f"💬 Ник: {data.get('username', '')}\n\n"
             "Всё верно? 🙂"
         ),
         reply_markup=confirm_kb()
     )
+
+
+async def update_user_in_db(message: Message, state: FSMContext, field: str, value):
+    """Обновляет поле пользователя в БД при редактировании"""
+    data = await state.get_data()
+    telegram_id = data.get('telegram_id')
+
+    if not telegram_id:
+        telegram_id = str(message.from_user.id)
+        await state.update_data(telegram_id=telegram_id)
+
+    # Маппинг полей FSM -> БД
+    field_mapping = {
+        'name': 'name',
+        'age': 'age',
+        'city': 'city',
+        'gender': 'sex',
+        'target_gender': 'search_sex',
+        'photo_id': 'photo_id'
+    }
+
+    db_field = field_mapping.get(field)
+    if db_field:
+        if field == 'gender':
+            value = map_gender_to_db(value)
+        elif field == 'target_gender':
+            value = map_target_gender_to_db(value)
+
+        await UserService.update_user_profile(
+            telegram_id=telegram_id,
+            **{db_field: value}
+        )
+
 
 @router.message(Profile.name, F.text)
 async def get_name(message: Message, state: FSMContext):
     name = message.text.strip()
     await state.update_data(name=name)
     data = await state.get_data()
+
     if data.get("is_edit"):
+        # Обновляем в БД
+        await update_user_in_db(message, state, 'name', name)
         await send_profile_preview(message, state)
         await state.set_state(Profile.confirm)
         return
+
     await message.answer("Сколько тебе лет?")
     await state.set_state(Profile.age)
 
@@ -46,32 +89,43 @@ async def get_age(message: Message, state: FSMContext):
             "Например: 19"
         )
         return
+
     age = int(text)
     await state.update_data(age=age)
     data = await state.get_data()
+
     if data.get("is_edit"):
+        # Обновляем в БД
+        await update_user_in_db(message, state, 'age', age)
         await send_profile_preview(message, state)
         await state.set_state(Profile.confirm)
         return
+
     await message.answer("Укажи свой пол:🚺️🚹", reply_markup=gender_kb())
     await state.set_state(Profile.gender)
+
 
 @router.message(
     Profile.gender,
     F.text.in_(["Женщина 👩", "Мужчина 🧑"])
 )
 async def get_gender(message: Message, state: FSMContext):
-    await state.update_data(gender=message.text)
+    gender = message.text
+    await state.update_data(gender=gender)
     data = await state.get_data()
+
     if data.get("is_edit"):
+        await update_user_in_db(message, state, 'gender', gender)
         await send_profile_preview(message, state)
         await state.set_state(Profile.confirm)
         return
+
     await message.answer(
         "Из какого ты города?🏙️",
-        reply_markup= ReplyKeyboardRemove()
+        reply_markup=ReplyKeyboardRemove()
     )
     await state.set_state(Profile.city)
+
 
 @router.message(Profile.city, F.text)
 async def get_city(message: Message, state: FSMContext):
@@ -82,21 +136,35 @@ async def get_city(message: Message, state: FSMContext):
 
     await state.update_data(city=city)
     data = await state.get_data()
+
     if data.get("is_edit"):
+        # Обновляем в БД
+        await update_user_in_db(message, state, 'city', city)
         await send_profile_preview(message, state)
         await state.set_state(Profile.confirm)
         return
+
     await message.answer("Что ты ищешь?", reply_markup=goal_kb())
     await state.set_state(Profile.goal)
 
+
 @router.message(Profile.goal, F.text.in_(["💘 Отношения", "🫂 Дружба"]))
 async def get_goal(message: Message, state: FSMContext):
-    await state.update_data(goal=message.text)
+    goal = message.text
+    await state.update_data(goal=goal)
     data = await state.get_data()
+
     if data.get("is_edit"):
+        telegram_id = data.get('telegram_id')
+        if data.get("telegram_id"):
+            await UserService.update_user_profile(
+                telegram_id=data["telegram_id"],
+                goal=map_goal_to_db(goal)
+            )
         await send_profile_preview(message, state)
         await state.set_state(Profile.confirm)
         return
+
     await message.answer("Кого ты ищешь?", reply_markup=target_gender_kb())
     await state.set_state(Profile.target_gender)
 
@@ -105,38 +173,54 @@ async def get_goal(message: Message, state: FSMContext):
     F.text.in_(["Мужчину 👱‍♂️", "Женщину 👩", "Не важно 👩👱‍♂️"])
 )
 async def get_target_gender(message: Message, state: FSMContext):
-    await state.update_data(target_gender=message.text)
+    target_gender = message.text
+    await state.update_data(target_gender=target_gender)
     data = await state.get_data()
+
     if data.get("is_edit"):
+        # Обновляем в БД
+        await update_user_in_db(message, state, 'target_gender', target_gender)
         await send_profile_preview(message, state)
         await state.set_state(Profile.confirm)
         return
-    await message.answer("Ещё чуть-чуть! Напиши свой ник в Telegram\n (например: @username)")
+
+    await message.answer("Нажми кнопку - и я автоматически возьму твой username из профиля!",
+                         reply_markup=username_kb())
     await state.set_state(Profile.username)
+
 
 @router.message(Profile.username, F.text)
 async def get_username(message: Message, state: FSMContext):
-    username = message.text.strip()
-    if not username.startswith("@"):
-        await message.answer(
-            "Ник должен начинаться с @ 🙂\n"
-            "Например: @mindy_user"
-        )
+    telegram_id = message.from_user.username
+    if not telegram_id:
+        await message.answer("У тебя не задан username в Telegram 🥲\n"
+                             "Зайди в настройки Telegram → Username и установи его, потом нажми кнопку ещё раз.",
+                             reply_markup=username_kb(),
+                             )
         return
 
-    if len(username) < 6:
-        await message.answer(
-            "Ник слишком короткий 🙂\n"
-        )
-        return
+    username = f"@{telegram_id}"
+
     await state.update_data(username=username)
     data = await state.get_data()
+
     if data.get("is_edit"):
+        telegram_id_id = data.get('telegram_id')
+        if telegram_id_id:
+            pass
         await send_profile_preview(message, state)
         await state.set_state(Profile.confirm)
         return
-    await message.answer("Отправь своё фото 📸")
+
+    await message.answer("Ещё чуть-чуть! Отправь своё фото 📸")
     await state.set_state(Profile.photo)
+
+@router.message(Profile.username)
+async def username_only_button(message: Message):
+    await message.answer(
+        "Пожалуйста, нажми кнопку «📨 Отправить мой username» 🙂",
+        reply_markup=username_kb()
+    )
 
 
 @router.message(Profile.photo, F.photo)
@@ -144,14 +228,16 @@ async def get_photo(message: Message, state: FSMContext):
     photo_id = message.photo[-1].file_id
     await state.update_data(photo_id=photo_id)
     data = await state.get_data()
+
     if data.get("is_edit"):
+        # Обновляем в БД
+        await update_user_in_db(message, state, 'photo_id', photo_id)
         await send_profile_preview(message, state)
         await state.set_state(Profile.confirm)
         return
-    data = await state.get_data()
+
     await message.answer_photo(
         photo=photo_id,
-
         caption=(
             "Готово! Анкета заполнена ✅\n\n"
             f"👤Имя: {data['name']}\n"
@@ -173,9 +259,36 @@ async def photo_expected(message: Message):
         "Нужно отправить фото как картинку 🙂(не файл)"
     )
 
+
 @router.message(Profile.confirm, F.text == "✅ Всё верно")
 async def confirm_profile(message: Message, state: FSMContext):
     data = await state.get_data()
+
+    # Telegram ID
+    telegram_id = str(message.from_user.id)
+
+    # Username из состояния (с @)
+    telegram_username = data.get('username')  # Например: "@username"
+
+    # Сохраняем/обновляем пользователя в БД
+    result = await UserService.register_user(
+        telegram_id=telegram_id,  # Telegram ID
+        username=telegram_username,  # Username с @
+        name=data['name'],
+        age=data['age'],
+        city=data['city'],
+        sex=map_gender_to_db(data['gender']),
+        photo_id=data['photo_id'],
+        goal=map_goal_to_db(data.get('goal', '💘 Отношения'))
+    )
+
+    if result['success']:
+        # Обновляем настройки поиска
+        await UserService.update_user_profile(
+            telegram_id=telegram_id,  # Используем тот же ID
+            search_sex=map_target_gender_to_db(data.get('target_gender', 'Не важно 👩👱‍♂️'))
+        )
+        await state.update_data(is_registered=True, telegram_id=telegram_id)
 
     card_text = (
         "Вот так твою анкету будут видеть другие пользователи 👀\n\n"
@@ -189,6 +302,7 @@ async def confirm_profile(message: Message, state: FSMContext):
         caption=card_text,
         reply_markup=ReplyKeyboardRemove()
     )
+
     await message.answer(
         "Далее — короткий психологический тест ✨\n"
         "Он поможет мне посчитать процент твоей совместимости с другими людьми и\n"
@@ -198,27 +312,29 @@ async def confirm_profile(message: Message, state: FSMContext):
     )
     await state.update_data(is_edit=False, test_completed=False)
 
+
 @router.message(Profile.confirm, F.text == "📝 Да!")
 async def start_test_from_confirm(message: Message, state: FSMContext):
     from src.dating_bot.handlers.psychological_test import start_test_command
     await start_test_command(message, state)
 
+
 @router.message(PsychologicalTest.welcome, F.text == "⏳ Не сейчас")
 @router.message(F.text.in_(["⏳ Позже"]))
 async def postpone_test(message: Message, state: FSMContext):
     data = await state.get_data()
-    if data.get("name"):  
-        from src.dating_bot.bot.keyboards import main_menu_kb
+    if data.get("name"):
         await message.answer(
             "✅ Твой профиль сохранен!\n\n"
             "Что хочешь сделать?",
             reply_markup=main_menu_kb()
         )
-    else:  
+    else:
         await message.answer(
             "Хорошо 🙂 Когда будешь готов(а) — напиши /start",
             reply_markup=ReplyKeyboardRemove()
         )
+
 
 @router.message(F.text == "✏️ Редактировать профиль")
 @router.message(Profile.confirm, F.text == "✏️ Изменить")
@@ -230,15 +346,34 @@ async def edit_start(message: Message, state: FSMContext):
     )
     await state.set_state(Profile.edit_field)
 
+
 @router.message(Profile.edit_field, F.text == "↩️ Назад")
 async def edit_back(message: Message, state: FSMContext):
     await send_profile_preview(message, state)
     await state.set_state(Profile.confirm)
 
 
+@router.message(Profile.edit_field, F.text == "🔄 Обновить username")
+async def refresh_username(message: Message, state: FSMContext):
+    telegram_id = message.from_user.username
+
+    if not telegram_id:
+        await message.answer(
+            "У тебя не задан username в Telegram 🥲\n"
+            "Зайди в настройки Telegram → Username и попробуй ещё раз."
+        )
+        return
+
+    await state.update_data(username=f"@{telegram_id}")
+
+    await message.answer("Username обновлён ✅")
+    await send_profile_preview(message, state)
+    await state.set_state(Profile.confirm)
+
+
 @router.message(Profile.edit_field, F.text.in_([
     "👤 Имя", "🎂 Возраст", "📍 Город", "⚧ Пол",
-    "🎯 Цель", "🔍 Кого ищешь", "💬 Ник", "📸 Фото"
+    "🎯 Цель", "🔍 Кого ищешь", "📸 Фото"
 ]))
 async def edit_choose_field(message: Message, state: FSMContext):
     await state.update_data(is_edit=True)
@@ -267,10 +402,6 @@ async def edit_choose_field(message: Message, state: FSMContext):
     elif choice == "🔍 Кого ищешь":
         await message.answer("Кого ты ищешь?", reply_markup=target_gender_kb())
         await state.set_state(Profile.target_gender)
-
-    elif choice == "💬 Ник":
-        await message.answer("Напиши ник в Telegram (например: @username)", reply_markup=ReplyKeyboardRemove())
-        await state.set_state(Profile.username)
 
     elif choice == "📸 Фото":
         await message.answer("Отправь новое фото 📸 (картинкой)", reply_markup=ReplyKeyboardRemove())

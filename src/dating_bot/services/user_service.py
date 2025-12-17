@@ -2,6 +2,8 @@ import logging
 from typing import Optional, Dict, Any
 from datetime import datetime
 
+from black import timezone
+
 from src.dating_bot.database.session import AsyncSessionLocal
 from src.dating_bot.database.repositories.user_repository import UserRepository
 
@@ -13,16 +15,17 @@ class UserService:
 
     @staticmethod
     async def register_user(
-            telegram_id: int,
             name: str,
+            telegram_id: str,
+            username: Optional[str] = None,
             age: Optional[int] = None,
             city: Optional[str] = None,
             sex: Optional[str] = None,
-            photo_id: Optional[str] = None
+            photo_id: Optional[str] = None,
+            goal: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Зарегистрировать нового пользователя
-
         """
         async with AsyncSessionLocal() as session:
             repo = UserRepository(session)
@@ -41,10 +44,12 @@ class UserService:
             # Создаем нового пользователя
             user = await repo.create_user(
                 telegram_id=telegram_id,
+                username=username,
                 name=name,
                 age=age,
                 city=city,
                 sex=sex,
+                goal=goal,
                 photo_id=photo_id
             )
 
@@ -66,7 +71,7 @@ class UserService:
                 }
 
     @staticmethod
-    async def get_user_profile(telegram_id: int) -> Optional[Dict[str, Any]]:
+    async def get_user_profile(telegram_id: str) -> Optional[Dict[str, Any]]:
         """
         Получить профиль пользователя в удобном формате для бота
         """
@@ -77,8 +82,7 @@ class UserService:
             if not user:
                 return None
 
-            # Форматируем данные
-            days_on_platform = (datetime.utcnow() - user.created_at).days
+            days_on_platform = (datetime.now(timezone.utc) - user.created_at).days
             created_str = user.created_at.strftime("%d.%m.%Y")
 
             # Формируем текст профиля
@@ -87,6 +91,7 @@ class UserService:
                 f"🎂 Возраст: {user.age if user.age else 'Не указан'}\n"
                 f"🏙 Город: {user.city if user.city else 'Не указан'}\n"
                 f"👫 Пол: {user.sex if user.sex else 'Не указан'}\n"
+                f"📱 Telegram: {user.username if user.username else f'ID: {telegram_id}'}\n"
                 f"📅 В боте с: {created_str} ({days_on_platform} дней)\n"
                 f"⭐ Статус: {'Активен ✅' if user.is_active else 'Неактивен ❌'}"
             )
@@ -101,17 +106,16 @@ class UserService:
 
     @staticmethod
     async def update_user_profile(
-            telegram_id: int,
+            telegram_id: str,
             **fields
     ) -> Dict[str, Any]:
         """
         Обновить профиль пользователя
-
         """
         async with AsyncSessionLocal() as session:
             repo = UserRepository(session)
 
-            # Проверяем существование пользователя
+
             user = await repo.get_user_by_telegram_id(telegram_id)
             if not user:
                 return {
@@ -120,7 +124,6 @@ class UserService:
                     "user": None
                 }
 
-            # Обновляем поля
             updated = await repo.update_user(telegram_id, **fields)
 
             if updated:
@@ -137,10 +140,9 @@ class UserService:
                 }
 
     @staticmethod
-    async def delete_user_profile(telegram_id: int) -> Dict[str, Any]:
+    async def delete_user_profile(telegram_id: str) -> Dict[str, Any]:
         """
         Удалить/деактивировать профиль пользователя
-
         """
         async with AsyncSessionLocal() as session:
             repo = UserRepository(session)
@@ -161,10 +163,9 @@ class UserService:
                 }
 
     @staticmethod
-    async def check_user_exists(telegram_id: int) -> bool:
+    async def check_user_exists(telegram_id: str) -> bool:
         """
         Проверить, зарегистрирован ли пользователь
-
         """
         async with AsyncSessionLocal() as session:
             repo = UserRepository(session)
@@ -173,8 +174,7 @@ class UserService:
     @staticmethod
     async def get_user_stats() -> Dict[str, Any]:
         """
-        Получить статистику пользователей (для админа)
-
+        Получить статистику пользователей
         """
         async with AsyncSessionLocal() as session:
             repo = UserRepository(session)
