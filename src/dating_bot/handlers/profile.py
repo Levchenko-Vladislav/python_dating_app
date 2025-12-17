@@ -2,7 +2,8 @@ from aiogram import Router, F
 from aiogram.types import Message, ReplyKeyboardRemove
 from aiogram.fsm.context import FSMContext
 from dating_bot.bot.states import Profile, PsychologicalTest
-from dating_bot.bot.keyboards import gender_kb, goal_kb, target_gender_kb,confirm_kb,test_ready_kb, edit_menu_kb, main_menu_kb
+from dating_bot.bot.keyboards import (gender_kb, goal_kb, target_gender_kb,confirm_kb,test_ready_kb,
+                                      edit_menu_kb, username_kb)
 
 router = Router()
 
@@ -33,6 +34,7 @@ async def get_name(message: Message, state: FSMContext):
         await send_profile_preview(message, state)
         await state.set_state(Profile.confirm)
         return
+    user_id = message.from_user.id
     await message.answer("Сколько тебе лет?")
     await state.set_state(Profile.age)
 
@@ -111,33 +113,36 @@ async def get_target_gender(message: Message, state: FSMContext):
         await send_profile_preview(message, state)
         await state.set_state(Profile.confirm)
         return
-    await message.answer("Ещё чуть-чуть! Напиши свой ник в Telegram\n (например: @username)")
+    await message.answer("Нажми кнопку - и я автоматически возьму твой username из профиля!",
+                         reply_markup=username_kb())
     await state.set_state(Profile.username)
 
 @router.message(Profile.username, F.text)
 async def get_username(message: Message, state: FSMContext):
-    username = message.text.strip()
-    if not username.startswith("@"):
+    tg_username = message.from_user.username
+    if not tg_username:
         await message.answer(
-            "Ник должен начинаться с @ 🙂\n"
-            "Например: @mindy_user"
+            "У тебя не задан username в Telegram 🥲\n"
+            "Зайди в настройки Telegram → Username и установи его, потом нажми кнопку ещё раз.",
+            reply_markup=username_kb(),
         )
         return
-
-    if len(username) < 6:
-        await message.answer(
-            "Ник слишком короткий 🙂\n"
-        )
-        return
+    username = f"@{tg_username}"
     await state.update_data(username=username)
     data = await state.get_data()
     if data.get("is_edit"):
         await send_profile_preview(message, state)
         await state.set_state(Profile.confirm)
         return
-    await message.answer("Отправь своё фото 📸")
+    await message.answer("Ещё чуть-чуть! Отправь своё фото 📸")
     await state.set_state(Profile.photo)
 
+@router.message(Profile.username)
+async def username_only_button(message: Message):
+    await message.answer(
+        "Пожалуйста, нажми кнопку «📨 Отправить мой username» 🙂",
+        reply_markup=username_kb()
+    )
 
 @router.message(Profile.photo, F.photo)
 async def get_photo(message: Message, state: FSMContext):
@@ -235,10 +240,26 @@ async def edit_back(message: Message, state: FSMContext):
     await send_profile_preview(message, state)
     await state.set_state(Profile.confirm)
 
+@router.message(Profile.edit_field, F.text == "🔄 Обновить username")
+async def refresh_username(message: Message, state: FSMContext):
+    tg_username = message.from_user.username
+
+    if not tg_username:
+        await message.answer(
+            "У тебя не задан username в Telegram 🥲\n"
+            "Зайди в настройки Telegram → Username и попробуй ещё раз."
+        )
+        return
+
+    await state.update_data(username=f"@{tg_username}")
+
+    await message.answer("Username обновлён ✅")
+    await send_profile_preview(message, state)
+    await state.set_state(Profile.confirm)
 
 @router.message(Profile.edit_field, F.text.in_([
     "👤 Имя", "🎂 Возраст", "📍 Город", "⚧ Пол",
-    "🎯 Цель", "🔍 Кого ищешь", "💬 Ник", "📸 Фото"
+    "🎯 Цель", "🔍 Кого ищешь", "📸 Фото"
 ]))
 async def edit_choose_field(message: Message, state: FSMContext):
     await state.update_data(is_edit=True)
@@ -267,10 +288,6 @@ async def edit_choose_field(message: Message, state: FSMContext):
     elif choice == "🔍 Кого ищешь":
         await message.answer("Кого ты ищешь?", reply_markup=target_gender_kb())
         await state.set_state(Profile.target_gender)
-
-    elif choice == "💬 Ник":
-        await message.answer("Напиши ник в Telegram (например: @username)", reply_markup=ReplyKeyboardRemove())
-        await state.set_state(Profile.username)
 
     elif choice == "📸 Фото":
         await message.answer("Отправь новое фото 📸 (картинкой)", reply_markup=ReplyKeyboardRemove())
