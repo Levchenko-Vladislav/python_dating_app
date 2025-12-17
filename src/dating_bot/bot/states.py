@@ -18,3 +18,8 @@ class PsychologicalTest(StatesGroup):
     paused = State()           
     results = State()          
     confirm_retake = State()
+
+class BrowsingState(StatesGroup):
+    browsing = State()
+    viewing_profile = State()
+    speed_dating = State()

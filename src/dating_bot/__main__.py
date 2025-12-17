@@ -2,8 +2,8 @@ import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from src.dating_bot.config import BOT_TOKEN
-from src.dating_bot.handlers import start, profile, psychological_test, menu
+from dating_bot.config import BOT_TOKEN
+from dating_bot.handlers import start, profile, psychological_test, menu, browse
 
 
 
@@ -15,6 +15,7 @@ async def main():
     dp.include_router(profile.router)
     dp.include_router(psychological_test.router)
     dp.include_router(menu.router)
+    dp.include_router(browse.router)
     await dp.start_polling(bot)
 
 

@@ -143,12 +143,12 @@ def browse_or_menu_kb() -> ReplyKeyboardMarkup:
         one_time_keyboard=True
     )
 
-
-def username_kb() -> ReplyKeyboardMarkup:
+def browsing_nav_kb() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📨 Отправить мой username")],
+            [KeyboardButton(text="❤️ Лайк"), KeyboardButton(text="❌ Дизлайк")],
+            [KeyboardButton(text="➡️ Следующая"), KeyboardButton(text="⏹ Стоп")],
         ],
         resize_keyboard=True,
-        one_time_keyboard=True,
+        one_time_keyboard=False
     )

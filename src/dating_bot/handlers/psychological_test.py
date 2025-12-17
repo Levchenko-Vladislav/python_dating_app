@@ -11,7 +11,8 @@ from src.dating_bot.bot.keyboards import (
     start_test_kb,
     test_results_kb,
     confirm_retake_kb,
-    edit_menu_kb
+    edit_menu_kb,
+    test_results_kb
 )
 from src.dating_bot.data.test_questions import PSYCHOLOGICAL_TEST_QUESTIONS
 from src.dating_bot.services.test_calculator import (
@@ -139,7 +140,7 @@ async def finish_test(message: Message, state: FSMContext):
     from src.dating_bot.bot.keyboards import browse_or_menu_kb
     await message.answer(
         results_text,
-        reply_markup=browse_or_menu_kb(),  # ← ТОЛЬКО ЭТА КЛАВИАТУРА
+        reply_markup=test_results_kb(), 
         parse_mode="Markdown"
     )
     await state.set_state(PsychologicalTest.results)
@@ -193,17 +194,9 @@ async def edit_profile_from_results(message: Message, state: FSMContext):
 
 @router.message(PsychologicalTest.results, F.text == "👀 Смотреть анкеты")
 async def browse_profiles_after_test(message: Message, state: FSMContext):
-    await message.answer(
-        "🔍 *Ищу подходящие анкеты...*\n\n"
-        "Эта функция скоро будет доступна!\n"
-        "Сейчас мы работаем над алгоритмом подбора.",
-        parse_mode="Markdown"
-    )
-    from src.dating_bot.bot.keyboards import main_menu_kb
-    await message.answer(
-        "👇 Можешь выбрать другое действие:",
-        reply_markup=main_menu_kb()
-    )
+    from src.dating_bot.handlers.browse import start_browsing
+    await state.update_data(test_completed=True)
+    await start_browsing(message, state)
 
 @router.message(PsychologicalTest.results, F.text == "📋 Главное меню")
 async def back_to_menu_after_test(message: Message, state: FSMContext):
