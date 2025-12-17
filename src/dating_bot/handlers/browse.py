@@ -8,6 +8,8 @@ from src.dating_bot.services.recommendations import RecommendationService
 from src.dating_bot.bot.states import BrowsingState
 from src.dating_bot.bot.keyboards import main_menu_kb
 
+import asyncio
+
 router = Router()
 recommendation_service = RecommendationService()
 
@@ -69,46 +71,127 @@ async def show_next_profile(message: Message, state: FSMContext):
     builder.button(text="❤️ Лайк", callback_data=f"like_{profile['id']}")
     builder.button(text="❌ Дизлайк", callback_data=f"dislike_{profile['id']}")
     builder.adjust(2) 
-    await message.answer_photo(
-        photo=profile["photo_id"],
-        caption=profile_text,
-        reply_markup=builder.as_markup(),
-        parse_mode="Markdown"
-    )
+    photo_id = profile.get("photo_id")
+    
+    if not photo_id:
+        # Если фото нет - отправляем только текст с иконкой фото
+        await message.answer(
+            f"🖼️ {profile_text}",
+            reply_markup=builder.as_markup(),
+            parse_mode="Markdown"
+        )
+    else:
+        try:
+            # Пробуем отправить фото
+            await message.answer_photo(
+                photo=photo_id,
+                caption=profile_text,
+                reply_markup=builder.as_markup(),
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            # Если ошибка (неправильный photo_id, фото удалено и т.д.)
+            print(f"Ошибка отправки фото: {e}")
+            
+            # Отправляем текстовую версию с иконкой
+            await message.answer(
+                f"🖼️ {profile_text}\n\n"
+                f"_Фото временно недоступно_",
+                reply_markup=builder.as_markup(),
+                parse_mode="Markdown"
+            )
     await state.update_data(current_index=current_index + 1)
 
 
 @router.callback_query(F.data.startswith("like_"))
 async def process_like(callback: CallbackQuery, state: FSMContext):
-    profile_id = int(callback.data.split("_")[1])
-    result = await recommendation_service.like_profile(
-        user_id=callback.from_user.id,
-        liked_profile_id=profile_id
-    )
-    await callback.answer(result["message"])
-    if result["is_mutual"]:
-        await callback.message.answer(
-            f"🎉 *Взаимная симпатия с {result['matched_profile']['name']}!*\n\n"
-            "Хочешь начать Speed Dating?\n"
-            "Это 5 вопросов чтобы лучше узнать друг друга!",
-            reply_markup=InlineKeyboardBuilder()
-                .button(text="🚀 Начать Speed Dating", callback_data="start_speed_dating")
-                .button(text="Позже", callback_data="skip_speed_dating")
-                .as_markup(),
-            parse_mode="Markdown"
+    """Обработчик лайка"""
+    try:
+        # Сразу отвечаем Telegram, чтобы убрать "loading..."
+        await callback.answer("❤️ Лайк отправлен!", show_alert=False)
+        
+        # Извлекаем ID профиля
+        profile_id = int(callback.data.split("_")[1])
+        
+        # Обновляем кнопку
+        builder = InlineKeyboardBuilder()
+        builder.button(text="❤️ Вы лайкнули", callback_data="already_liked")
+        builder.button(text="❌ Дизлайк", callback_data=f"dislike_{profile_id}")
+        builder.adjust(2)
+        
+        # Редактируем сообщение
+        try:
+            await callback.message.edit_reply_markup(
+                reply_markup=builder.as_markup()
+            )
+        except Exception:
+            pass  # Игнорируем ошибки редактирования
+        
+        # Сохраняем лайк в БД (заглушка)
+        print(f"Пользователь {callback.from_user.id} лайкнул профиль {profile_id}")
+        
+        # Проверяем на взаимный лайк
+        match_result = await recommendation_service.like_profile(
+            callback.from_user.id, 
+            profile_id
         )
-    await show_next_profile(callback.message, state)
+        
+        if match_result.get("is_mutual"):
+            # Если взаимный лайк - уведомляем пользователя
+            await callback.message.answer(
+                f"🎉 {match_result['message']}",
+                parse_mode="Markdown"
+            )
+        
+        # Показываем следующую анкету через секунду
+        await asyncio.sleep(1)
+        await continue_browsing(callback, state)
+        
+    except Exception as e:
+        print(f"Ошибка в process_like: {e}")
+        await callback.answer("❌ Ошибка при обработке лайка", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("dislike_"))
 async def process_dislike(callback: CallbackQuery, state: FSMContext):
-    profile_id = int(callback.data.split("_")[1])
-    await recommendation_service.dislike_profile(
-        user_id=callback.from_user.id,
-        disliked_profile_id=profile_id
-    )
-    await callback.answer("👎 Запомнил, больше не покажу")
-    await show_next_profile(callback.message, state)
+    """Обработчик дизлайка"""
+    try:
+        # Сразу отвечаем Telegram
+        await callback.answer("❌ Дизлайк отправлен", show_alert=False)
+        
+        # Извлекаем ID профиля
+        profile_id = int(callback.data.split("_")[1])
+        
+        # Обновляем кнопку
+        builder = InlineKeyboardBuilder()
+        builder.button(text="❤️ Лайк", callback_data=f"like_{profile_id}")
+        builder.button(text="❌ Пропущено", callback_data="already_disliked")
+        builder.adjust(2)
+        
+        # Редактируем сообщение
+        try:
+            await callback.message.edit_reply_markup(
+                reply_markup=builder.as_markup()
+            )
+        except Exception:
+            pass
+        
+        # Сохраняем дизлайк (заглушка)
+        print(f"Пользователь {callback.from_user.id} дизлайкнул профиль {profile_id}")
+        
+        # Показываем следующую анкету
+        await asyncio.sleep(1)
+        await continue_browsing(callback, state)
+        
+    except Exception as e:
+        print(f"Ошибка в process_dislike: {e}")
+        await callback.answer("❌ Ошибка при обработке дизлайка", show_alert=True)
+
+
+@router.callback_query(F.data.in_(["already_liked", "already_disliked"]))
+async def handle_already_action(callback: CallbackQuery):
+    """Обработка повторного нажатия на уже выполненное действие"""
+    await callback.answer("Вы уже выполнили это действие", show_alert=False)
 
 @router.callback_query(F.data == "start_speed_dating")
 async def start_speed_dating(callback: CallbackQuery, state: FSMContext):

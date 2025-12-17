@@ -152,3 +152,12 @@ def browsing_nav_kb() -> ReplyKeyboardMarkup:
         resize_keyboard=True,
         one_time_keyboard=False
     )
+
+def username_kb() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📨 Отправить мой username")],
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
