@@ -2,8 +2,6 @@ import logging
 from typing import Optional, Dict, Any
 from datetime import datetime
 
-from black import timezone
-
 from src.dating_bot.database.session import AsyncSessionLocal
 from src.dating_bot.database.repositories.user_repository import UserRepository
 
@@ -82,7 +80,7 @@ class UserService:
             if not user:
                 return None
 
-            days_on_platform = (datetime.now(timezone.utc) - user.created_at).days
+            days_on_platform = (datetime.utcnow() - user.created_at).days
             created_str = user.created_at.strftime("%d.%m.%Y")
 
             # Формируем текст профиля
@@ -115,7 +113,7 @@ class UserService:
         async with AsyncSessionLocal() as session:
             repo = UserRepository(session)
 
-
+            # Проверяем существование пользователя
             user = await repo.get_user_by_telegram_id(telegram_id)
             if not user:
                 return {
@@ -124,6 +122,7 @@ class UserService:
                     "user": None
                 }
 
+            # Обновляем поля
             updated = await repo.update_user(telegram_id, **fields)
 
             if updated:
@@ -174,7 +173,7 @@ class UserService:
     @staticmethod
     async def get_user_stats() -> Dict[str, Any]:
         """
-        Получить статистику пользователей
+        Получить статистику пользователей (для админа)
         """
         async with AsyncSessionLocal() as session:
             repo = UserRepository(session)
