@@ -127,7 +127,8 @@ def main_menu_kb() -> ReplyKeyboardMarkup:
         keyboard=[
             [KeyboardButton(text="🧠 Пройти тест")],
             [KeyboardButton(text="✏️ Редактировать профиль"), KeyboardButton(text="👀 Мой профиль")],
-            [KeyboardButton(text="🔍 Начать поиск")],
+            [KeyboardButton(text="💞 Мои мэтчи")],
+            [KeyboardButton(text="👀 Смотреть анкеты")],
         ],
         resize_keyboard=True,
         one_time_keyboard=True

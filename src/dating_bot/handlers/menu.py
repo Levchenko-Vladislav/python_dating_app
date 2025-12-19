@@ -6,6 +6,7 @@ from src.dating_bot.bot.keyboards import edit_menu_kb, main_menu_kb
 
 # Импорты для работы с БД
 from src.dating_bot.services.user_service import UserService
+from src.dating_bot.services.test_service import TestService
 from src.dating_bot.utils.data_mappers import map_gender_to_ui, map_target_gender_to_ui
 from src.dating_bot.utils.data_mappers import map_goal_to_db, map_goal_to_ui
 
@@ -20,7 +21,7 @@ async def start_test_from_menu(message: Message, state: FSMContext):
 
 @router.message(F.text == "👀 Мой профиль")
 async def show_my_profile_menu(message: Message, state: FSMContext):
-    telegram_id = message.from_user.id
+    telegram_id = str(message.from_user.id)
 
     # Получаем данные из БД
     user_profile_data = await UserService.get_user_profile(telegram_id)
@@ -28,9 +29,23 @@ async def show_my_profile_menu(message: Message, state: FSMContext):
     if user_profile_data and user_profile_data.get('user'):
         user = user_profile_data['user']
 
+        # Проверяем в БД, прошел ли пользователь тест
+        has_completed_test = await TestService.has_completed_test(user.id)
+
         # Получаем данные из состояния (для полей, которых нет в БД)
         state_data = await state.get_data()
         goal_text = map_goal_to_ui(user.goal) if user.goal else "Не указано"
+
+        # Определяем статус теста
+        test_status = "✅ Тест пройден" if has_completed_test else "❌ Тест не пройден"
+
+        # Если тест пройден, получаем результаты
+        test_results_text = ""
+        if has_completed_test:
+            test_results = await TestService.get_user_test_results(user.id)
+            if test_results and test_results.get('category_scores'):
+                from src.dating_bot.services.test_calculator import format_results_for_display
+                test_results_text = f"\n\n*Результаты теста:*\n{format_results_for_display(test_results['category_scores'])}"
 
         profile_text = (
             "👤 *Твой профиль:*\n\n"
@@ -40,8 +55,8 @@ async def show_my_profile_menu(message: Message, state: FSMContext):
             f"• Пол: {map_gender_to_ui(user.sex) if user.sex else '—'}\n"
             f"• Цель: {goal_text}\n"
             f"• Ищу: {map_target_gender_to_ui(user.search_sex) if user.search_sex else '—'}\n"
-            f"• Телеграм: {state_data.get('username', '—')}\n\n"
-            f"{'✅ Тест пройден' if state_data.get('test_completed') else '❌ Тест не пройден'}"
+            f"{test_status}"
+            f"{test_results_text}"
         )
 
         photo_id = user.photo_id if user.photo_id else state_data.get('photo_id')
@@ -73,7 +88,6 @@ async def show_my_profile_menu(message: Message, state: FSMContext):
                     f"• Пол: {data.get('gender', '—')}\n"
                     f"• Цель: {data.get('goal', '—')}\n"
                     f"• Ищу: {data.get('target_gender', '—')}\n"
-                    f"• Телеграм: {data.get('username', '—')}\n\n"
                     f"{'✅ Тест пройден' if data.get('test_completed') else '❌ Тест не пройден'}"
                 ),
                 parse_mode="Markdown"

@@ -36,25 +36,25 @@ async def init_database():
     """
     Инициализация базы данных - создание таблиц
     """
-    print("🔧 Инициализация базы данных...")
+    print("Инициализация базы данных...")
 
-    from .models import User
+    from .models import User, UserTestResult, Like, Match
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    print("✅ Таблицы созданы успешно!")
+    print("Таблицы созданы успешно!")
 
-    # Проверяем что все работает
     async with AsyncSessionLocal() as session:
         from sqlalchemy import text
         result = await session.execute(text("SELECT COUNT(*) FROM sqlite_master WHERE type='table'"))
         table_count = result.scalar()
-        print(f"📊 Таблиц в БД: {table_count}")
+        print(f"Таблиц в БД: {table_count}")
 
-        # Проверяем таблицу users
-        result = await session.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='users'"))
-        if result.fetchone():
-            print("✅ Таблица 'users' существует")
-        else:
-            print("❌ Таблица 'users' не найдена")
+        tables = ['users', 'user_test_results', 'likes', 'matches']
+        for table in tables:
+            result = await session.execute(text(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table}'"))
+            if result.fetchone():
+                print(f"Таблица '{table}' существует")
+            else:
+                print(f"Таблица '{table}' не найдена")

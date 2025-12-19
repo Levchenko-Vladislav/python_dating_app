@@ -21,10 +21,12 @@ try:
     from src.dating_bot.handlers.profile import router as profile_router
     from src.dating_bot.handlers.menu import router as menu_router
     from src.dating_bot.handlers.psychological_test import router as test_router
+    from src.dating_bot.handlers.browse import router as browse_router  # ← ДОБАВЬТЕ!
+    from src.dating_bot.handlers.matches import router as matches_router  # ← ДОБАВЬТЕ!
 
-    logger.info("✅ Все обработчики импортированы")
+    logger.info("Все обработчики импортированы")
 except ImportError as e:
-    logger.error(f"❌ Ошибка импорта: {e}")
+    logger.error(f"Ошибка импорта: {e}")
     logger.error("Проверьте структуру проекта и наличие __init__.py файлов")
     sys.exit(1)
 
@@ -51,33 +53,31 @@ async def main():
             BOT_TOKEN = input("Введите токен бота: ").strip()
 
     if not BOT_TOKEN:
-        logger.error("❌ Токен бота не указан!")
+        logger.error("Токен бота не указан!")
         return
 
-    # Инициализация базы данных
-    logger.info("🔧 Инициализация базы данных...")
+    logger.info("Инициализация базы данных...")
     try:
         from src.dating_bot.database.session import init_database
         await init_database()
-        logger.info("✅ База данных инициализирована")
+        logger.info("База данных инициализирована")
     except Exception as e:
-        logger.error(f"❌ Ошибка инициализации БД: {e}")
+        logger.error(f"Ошибка инициализации БД: {e}")
         return
 
-    # Инициализация бота
     bot = Bot(token=BOT_TOKEN)
     storage = MemoryStorage()
     dp = Dispatcher(storage=storage)
 
-    # Регистрация роутеров
     dp.include_router(start_router)
     dp.include_router(profile_router)
     dp.include_router(menu_router)
-    dp.include_router(test_router)  # ← ДОБАВЬТЕ ЭТУ СТРОКУ!
+    dp.include_router(test_router)
+    dp.include_router(browse_router)
+    dp.include_router(matches_router)
 
-    logger.info("🚀 Бот запускается...")
+    logger.info("Бот запускается...")
 
-    # Запуск бота
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
@@ -86,9 +86,8 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n🛑 Бот остановлен пользователем")
+        print("\nБот остановлен пользователем")
     except Exception as e:
-        print(f"💥 Ошибка: {e}")
+        print(f"Ошибка: {e}")
         import traceback
-
         traceback.print_exc()

@@ -116,6 +116,7 @@ async def finish_test(message: Message, state: FSMContext):
     answered_count = len(answers)
     skipped_count = TOTAL_QUESTIONS - answered_count
     min_required = get_min_required_answers()
+
     if answered_count < min_required:
         completion = calculate_test_completion_percentage(answered_count)
         await message.answer(
@@ -126,21 +127,45 @@ async def finish_test(message: Message, state: FSMContext):
         )
         await state.set_state(PsychologicalTest.welcome)
         return
+
+    # Рассчитываем результаты
     category_scores = calculate_category_scores(answers)
+
+    # Сохраняем результаты в БД
+    from src.dating_bot.services.test_service import TestService
+    from src.dating_bot.services.user_service import UserService
+
+    # Получаем user_id из БД
+    telegram_id = str(message.from_user.id)
+    user_profile = await UserService.get_user_profile(telegram_id)
+
+    if user_profile and user_profile.get('user'):
+        user_id = user_profile['user'].id
+
+        # Сохраняем результаты теста
+        test_result = await TestService.save_test_results(
+            user_id=user_id,
+            answers=answers,
+            is_completed=True
+        )
+
+    # Обновляем состояние
     await state.update_data(
         test_completed=True,
         test_completed_at=datetime.now().isoformat(),
         category_scores=category_scores
     )
+
     results_text = format_results_for_display(category_scores)
     if skipped_count > 0:
         results_text += f"\nℹ️ *Пропущено вопросов:* {skipped_count}"
+
     results_text += "\n✅ *Тест пройден! Теперь я смогу подбирать тебе идеальную пару! 💫*\n\n"
     results_text += "🎯 *Что дальше?*"
-    from src.dating_bot.bot.keyboards import browse_or_menu_kb
+
     await message.answer(
         results_text,
-        reply_markup=test_results_kb(), 
+        reply_markup=test_results_kb(),
         parse_mode="Markdown"
     )
     await state.set_state(PsychologicalTest.results)

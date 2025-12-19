@@ -2,10 +2,10 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import logging
 
-from src.dating_bot.database.models import User
+from src.dating_bot.database.models import User, UserTestResult
 
 logger = logging.getLogger(__name__)
 
@@ -221,3 +221,27 @@ class UserRepository:
         except Exception as e:
             logger.error(f"Ошибка подсчета пользователей: {e}")
             return 0
+
+    async def get_user_with_test_results(self, telegram_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Получить пользователя вместе с результатами теста
+        """
+        try:
+            user = await self.get_user_by_telegram_id(telegram_id)
+            if not user:
+                return None
+
+            result = await self.session.execute(
+                select(UserTestResult).where(UserTestResult.user_id == user.id)
+            )
+            test_result = result.scalar_one_or_none()
+
+            return {
+                "user": user,
+                "test_result": test_result,
+                "has_test": test_result is not None and test_result.is_completed
+            }
+
+        except Exception as e:
+            logger.error(f"Ошибка получения пользователя с тестом: {e}")
+            return None

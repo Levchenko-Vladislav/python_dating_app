@@ -11,7 +11,7 @@ from src.dating_bot.database.session import Base
 from src.dating_bot.database.models import User
 
 
-@pytest_asyncio.fixture(scope="function")  # function - ОТДЕЛЬНАЯ БД ДЛЯ КАЖДОГО ТЕСТА!
+@pytest_asyncio.fixture(scope="function")
 async def test_engine():
     """Движок БД - СОЗДАЕТСЯ ЗАНОВО ДЛЯ КАЖДОГО ТЕСТА"""
     engine = create_async_engine(
