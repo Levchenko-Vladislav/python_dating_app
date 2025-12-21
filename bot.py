@@ -21,8 +21,8 @@ try:
     from src.dating_bot.handlers.profile import router as profile_router
     from src.dating_bot.handlers.menu import router as menu_router
     from src.dating_bot.handlers.psychological_test import router as test_router
-    from src.dating_bot.handlers.browse import router as browse_router  # ← ДОБАВЬТЕ!
-    from src.dating_bot.handlers.matches import router as matches_router  # ← ДОБАВЬТЕ!
+    from src.dating_bot.handlers.browse import router as browse_router
+    from src.dating_bot.handlers.speed_dating import router as speed_dating_router  # ← ЗАМЕНИТЕ matches на speed_dating!
 
     logger.info("Все обработчики импортированы")
 except ImportError as e:
@@ -74,7 +74,7 @@ async def main():
     dp.include_router(menu_router)
     dp.include_router(test_router)
     dp.include_router(browse_router)
-    dp.include_router(matches_router)
+    dp.include_router(speed_dating_router)  # ← ЗАМЕНИТЕ matches на speed_dating!
 
     logger.info("Бот запускается...")
 

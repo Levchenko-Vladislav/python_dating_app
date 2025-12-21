@@ -23,3 +23,11 @@ class BrowsingState(StatesGroup):
     browsing = State()
     viewing_profile = State()
     speed_dating = State()
+
+class SpeedDatingState(StatesGroup):
+    waiting_start = State()   
+    waiting_confirmation = State()       
+    in_session = State()            
+    waiting_answer = State()         
+    partner_waiting = State()       
+    ended = State()                  

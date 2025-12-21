@@ -1,10 +1,11 @@
 from aiogram import Router, F
 from aiogram.types import Message, ReplyKeyboardRemove
 from aiogram.fsm.context import FSMContext
+from aiogram.filters import StateFilter
 from src.dating_bot.bot.states import Profile, PsychologicalTest
 from src.dating_bot.bot.keyboards import (gender_kb, goal_kb, target_gender_kb, confirm_kb, test_ready_kb,
-                                      edit_menu_kb, username_kb, main_menu_kb)
-from src.dating_bot.services.user_service import UserService
+                                      edit_menu_kb, username_kb, main_menu_kb, confirmation_kb)
+from src.dating_bot.services.user_service import UserService, delete_user_completely
 from src.dating_bot.utils.data_mappers import map_gender_to_db, map_target_gender_to_db
 from src.dating_bot.utils.data_mappers import map_goal_to_db, map_goal_to_ui
 from src.dating_bot.handlers.psychological_test import start_test_command
@@ -452,3 +453,61 @@ async def edit_choose_field(message: Message, state: FSMContext):
         
         await message.answer("Отправь новое фото 📸 (картинкой)", reply_markup=ReplyKeyboardRemove())
         await state.set_state(Profile.photo)
+
+@router.message(F.text == "🗑️ Удалить анкету")
+async def delete_profile_command(message: Message, state: FSMContext):
+    """
+    Удаление анкеты пользователя
+    """
+    await message.answer(
+        "⚠️ <b>ВНИМАНИЕ!</b>\n\n"
+        "Вы собираетесь УДАЛИТЬ свою анкету и ВСЕ данные:\n"
+        "• Ваш профиль\n"
+        "• Результаты теста\n"
+        "• Все лайки и мэтчи\n"
+        "• Историю Speed Dating\n\n"
+        "Это действие НЕЛЬЗЯ отменить!\n\n"
+        "Вы уверены?",
+        parse_mode="HTML",
+        reply_markup=confirmation_kb()
+    )
+    await state.set_state("waiting_delete_confirmation")
+
+@router.message(F.text == "✅ Да, удалить всё", StateFilter("waiting_delete_confirmation"))
+async def confirm_delete_profile(message: Message, state: FSMContext):
+    """
+    Подтверждение удаления анкеты
+    """
+    telegram_id = str(message.from_user.id)
+    
+    # Показываем анимацию загрузки
+    loading_msg = await message.answer("🗑️ Удаляем ваши данные...")
+    
+    # Удаляем пользователя
+    result = await delete_user_completely(telegram_id)
+    
+    if result:
+        await loading_msg.edit_text(
+            "✅ Ваша анкета и все данные успешно удалены!\n\n"
+            "Если захотите вернуться, просто нажмите /start\n"
+            "Спасибо, что были с нами! 👋"
+        )
+    else:
+        await loading_msg.edit_text(
+            "❌ Не удалось удалить анкету. Возможно, она уже удалена.\n"
+            "Обратитесь к администратору."
+        )
+    
+    await state.clear()
+
+@router.message(F.text == "❌ Нет, отменить", StateFilter("waiting_delete_confirmation"))
+async def cancel_delete_profile(message: Message, state: FSMContext):
+    """
+    Отмена удаления анкеты
+    """
+    await message.answer(
+        "Удаление анкеты отменено.\n"
+        "Ваши данные сохранены.",
+        reply_markup=main_menu_kb()
+    )
+    await state.clear()

@@ -19,7 +19,7 @@ async def start_test_from_menu(message: Message, state: FSMContext):
     await start_test_command(message, state)
 
 
-@router.message(F.text == "👀 Мой профиль")
+@router.message(F.text == "👤 Мой профиль")
 async def show_my_profile_menu(message: Message, state: FSMContext):
     telegram_id = str(message.from_user.id)
 
@@ -100,12 +100,3 @@ async def show_my_profile_menu(message: Message, state: FSMContext):
             await message.answer("Профиль не заполнен. Напиши /start")
 
 
-@router.message(F.text == "🔍 Начать поиск")
-async def start_search_menu(message: Message, state: FSMContext):
-    await message.answer(
-        "🔍 *Поиск совместимых людей*\n\n"
-        "Эта функция скоро будет доступна!\n"
-        "Сейчас мы работаем над алгоритмом подбора.",
-        parse_mode="Markdown",
-        reply_markup=main_menu_kb()
-    )

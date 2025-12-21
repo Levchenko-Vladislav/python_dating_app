@@ -107,3 +107,14 @@ class MatchRepository:
             await self.session.rollback()
             logger.error(f"Ошибка архивации мэтча: {e}")
             return False
+
+    async def get_match_by_id(self, match_id: int) -> Optional[Match]:
+        """Получить мэтч по ID"""
+        try:
+            result = await self.session.execute(
+                select(Match).where(Match.id == match_id)
+            )
+            return result.scalar_one_or_none()
+        except Exception as e:
+            logger.error(f"Ошибка получения мэтча по ID: {e}")
+            return None

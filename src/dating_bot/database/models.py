@@ -30,6 +30,8 @@ class User(Base):
     test_results = relationship("UserTestResult", back_populates="user", uselist=False)
     given_likes = relationship("Like", foreign_keys="Like.user_from_id", back_populates="user_from")
     received_likes = relationship("Like", foreign_keys="Like.user_to_id", back_populates="user_to")
+    speed_dating_sessions1 = relationship("SpeedDatingSession", foreign_keys="SpeedDatingSession.user1_id", back_populates="user1")
+    speed_dating_sessions2 = relationship("SpeedDatingSession", foreign_keys="SpeedDatingSession.user2_id", back_populates="user2")
 
     def __repr__(self):
         return f"<User(id={self.id}, name='{self.name}', telegram_id='{self.telegram_id}', username='{self.username}')>"
@@ -92,9 +94,50 @@ class Match(Base):
     matched_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     status = Column(String(20), default="active")
+    
+    # Связь с сессией спиддейтинга
+    speed_dating_session = relationship("SpeedDatingSession", back_populates="match", uselist=False, cascade="all, delete-orphan")
 
     user1 = relationship("User", foreign_keys=[user1_id])
     user2 = relationship("User", foreign_keys=[user2_id])
 
     def __repr__(self):
         return f"<Match({self.user1_id} ↔ {self.user2_id}, status={self.status})>"
+
+
+class SpeedDatingSession(Base):
+    """Сессия спиддейтинга"""
+    
+    __tablename__ = "speed_dating_sessions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user1_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user2_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    match_id = Column(Integer, ForeignKey("matches.id"), nullable=False)
+    
+    # 5 случайных вопросов
+    questions = Column(JSON, nullable=False)  # Список вопросов
+    
+    # Текущий прогресс
+    current_question_index = Column(Integer, default=0)
+    
+    # Ответы: {question_index: {user_id: answer}}
+    answers = Column(JSON, default=dict)
+    
+    # Кто сейчас отвечает
+    current_responder_id = Column(Integer, nullable=True)
+    
+    # Статус сессии
+    status = Column(String, default="active")  # active, waiting, completed, cancelled
+    
+    # Временные метки
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Связи
+    user1 = relationship("User", foreign_keys=[user1_id], back_populates="speed_dating_sessions1")
+    user2 = relationship("User", foreign_keys=[user2_id], back_populates="speed_dating_sessions2")
+    match = relationship("Match", back_populates="speed_dating_session")
+    
+    def __repr__(self):
+        return f"<SpeedDatingSession(id={self.id}, {self.user1_id} ↔ {self.user2_id}, status={self.status})>"

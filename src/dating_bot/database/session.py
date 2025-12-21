@@ -38,7 +38,7 @@ async def init_database():
     """
     print("Инициализация базы данных...")
 
-    from .models import User, UserTestResult, Like, Match
+    from .models import User, UserTestResult, Like, Match, SpeedDatingSession
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -51,7 +51,7 @@ async def init_database():
         table_count = result.scalar()
         print(f"Таблиц в БД: {table_count}")
 
-        tables = ['users', 'user_test_results', 'likes', 'matches']
+        tables = ['users', 'user_test_results', 'likes', 'matches', 'speed_dating_sessions']
         for table in tables:
             result = await session.execute(text(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table}'"))
             if result.fetchone():

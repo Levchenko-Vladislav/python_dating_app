@@ -130,27 +130,34 @@ class LikeService:
             # Получаем мэтчи
             matches = await match_repo.get_user_matches(user.id)
 
-            result = []
+            matches_list = []
             for match in matches:
-                # Определяем, кто второй пользователь в мэтче
-                other_user_id = match.user2_id if match.user1_id == user.id else match.user1_id
+                # Получаем информацию о втором пользователе в мэтче
+                if match.user1_id == user.id:
+                    other_user_id = match.user2_id
+                else:
+                    other_user_id = match.user1_id
+                
+                # Получаем объект другого пользователя
                 other_user = await user_repo.get_user_by_id(other_user_id)
 
-                if other_user:
-                    result.append({
-                        "match_id": match.id,
-                        "user": {
-                            "id": other_user.id,
-                            "name": other_user.name,
-                            "age": other_user.age,
-                            "city": other_user.city,
-                            "photo_id": other_user.photo_id,
-                            "username": other_user.username
-                        },
-                        "matched_at": match.matched_at
-                    })
+                if not other_user:
+                    continue 
 
-            return result
+            matches_list.append({
+                'match_id': match.id,
+                'user': {
+                    'id': other_user.id,  # ✅ Другой пользователь
+                    'name': other_user.name,
+                    "age": other_user.age,
+                    "city": other_user.city,
+                    "photo_id": other_user.photo_id,
+                    "username": other_user.username
+                },
+                "matched_at": match.matched_at
+            })
+
+            return matches_list
 
     @staticmethod
     async def get_likes_received(user_id: int) -> List[Dict[str, Any]]:
