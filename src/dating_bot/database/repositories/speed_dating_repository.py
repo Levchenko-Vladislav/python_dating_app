@@ -4,14 +4,14 @@ from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 import logging
-
+from sqlalchemy.orm.attributes import flag_modified
 from src.dating_bot.database.models import SpeedDatingSession, Match
 
 logger = logging.getLogger(__name__)
 
 
 class SpeedDatingRepository:
-    """Репозиторий для работы с сессиями спиддейтинга"""
+
     
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -21,19 +21,17 @@ class SpeedDatingRepository:
         try:
             if current_responder_id is None:
                 current_responder_id = user1_id
-            # Проверяем, есть ли уже активная сессия
-            
+
             new_session = SpeedDatingSession(
                 user1_id=user1_id,
                 user2_id=user2_id,
                 match_id=match_id,
                 questions=questions,
-                current_responder_id=current_responder_id,  # <-- УСТАНАВЛИВАЕМ
                 status='active',
                 created_at=datetime.now(timezone.utc),
                 updated_at=datetime.now(timezone.utc)
             )
-            
+
             self.session.add(new_session)
             await self.session.commit()
             await self.session.refresh(new_session)
@@ -46,25 +44,6 @@ class SpeedDatingRepository:
             logger.error(f"Ошибка создания сессии: {e}")
             return None
 
-    async def update_current_responder(self, session_id: int, user_id: int) -> bool:
-        """Обновить текущего отвечающего"""
-        try:
-            session_obj = await self.get_session_by_id(session_id)
-            if not session_obj:
-                return False
-            
-            session_obj.current_responder_id = user_id
-            session_obj.updated_at = datetime.now(timezone.utc)
-            
-            await self.session.commit()
-            logger.info(f"Обновлен current_responder_id для сессии {session_id}: {user_id}")
-            return True
-            
-        except Exception as e:
-            await self.session.rollback()
-            logger.error(f"Ошибка обновления current_responder_id: {e}")
-            return False
-    
     async def get_active_session(self, user1_id: int, user2_id: int) -> Optional[SpeedDatingSession]:
         """Получить активную сессию между двумя пользователями"""
         try:
@@ -119,38 +98,40 @@ class SpeedDatingRepository:
         except Exception as e:
             logger.error(f"Ошибка получения сессий пользователя: {e}")
             return []
-    
-    async def save_answer(self, session_id: int, user_id: int, answer: str) -> bool:
-        """Сохранить ответ пользователя на текущий вопрос"""
+
+    async def save_answer(self, session_id: int, user_id: int, answer: str) -> Dict[str, Any]:
         try:
             session = await self.get_session_by_id(session_id)
             if not session:
-                return False
-            
-            # Сохраняем ответ
-            if str(session.current_question_index) not in session.answers:
-                session.answers[str(session.current_question_index)] = {}
-            
-            session.answers[str(session.current_question_index)][str(user_id)] = answer
-            
-            # Меняем отвечающего
-            next_responder = session.user2_id if session.current_responder_id == session.user1_id else session.user1_id
-            session.current_responder_id = next_responder
-            
-            # Если оба ответили на вопрос, переходим к следующему
-            if len(session.answers[str(session.current_question_index)]) == 2:
+                return {"success": False, "message": "Сессия не найдена"}
+
+            q_idx = session.current_question_index
+
+            if not session.answers:
+                session.answers = {}
+            if str(q_idx) not in session.answers:
+                session.answers[str(q_idx)] = {}
+
+            session.answers[str(q_idx)][str(user_id)] = answer
+            flag_modified(session, "answers")
+            question_completed = (len(session.answers[str(q_idx)]) == 2)
+            if question_completed:
                 session.current_question_index += 1
-            
+
             session.updated_at = datetime.now(timezone.utc)
             await self.session.commit()
-            
-            return True
-            
+
+            return {
+                "success": True,
+                "question_completed": question_completed,
+                "completed_question_index": q_idx
+            }
+
         except Exception as e:
             await self.session.rollback()
             logger.error(f"Ошибка сохранения ответа: {e}")
-            return False
-    
+            return {"success": False, "message": "Ошибка сохранения ответа"}
+
     async def cancel_session(self, session_id: int) -> bool:
         """Отменить сессию спиддейтинга"""
         try:
@@ -161,7 +142,7 @@ class SpeedDatingRepository:
             session.status = "cancelled"
             session.updated_at = datetime.now(timezone.utc)
             
-            # Удаляем мэтч
+
             match_repo = MatchRepository(self.session)
             await match_repo.archive_match(session.user1_id, session.user2_id)
             
@@ -190,3 +171,14 @@ class SpeedDatingRepository:
             await self.session.rollback()
             logger.error(f"Ошибка завершения сессии: {e}")
             return False
+
+    async def get_active_session_by_user_id(self, user_id: int):
+        stmt = select(SpeedDatingSession).where(
+            SpeedDatingSession.status == "active",
+            or_(
+                SpeedDatingSession.user1_id == user_id,
+                SpeedDatingSession.user2_id == user_id
+            )
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
