@@ -10,8 +10,6 @@ logger = logging.getLogger(__name__)
 
 
 class LikeService:
-    """Сервис для работы с лайками и мэтчами"""
-
     @staticmethod
     async def like_profile(user_from_db_id: int, user_to_db_id: int) -> Dict[str, Any]:
 
@@ -21,7 +19,6 @@ class LikeService:
             match_repo = MatchRepository(session)
             user_repo = UserRepository(session)
 
-            # Проверяем существование пользователей
             user_from = await user_repo.get_user_by_id(user_from_db_id)
             user_to = await user_repo.get_user_by_id(user_to_db_id)
 
@@ -32,7 +29,6 @@ class LikeService:
                     "message": "Пользователь не найден"
                 }
 
-            # Сохраняем лайк
             like = await like_repo.create_like(user_from_db_id, user_to_db_id, is_like=True)
 
             if not like:
@@ -42,7 +38,6 @@ class LikeService:
                     "message": "Ошибка при сохранении лайка"
                 }
 
-            # Проверяем на взаимность
             is_mutual = await like_repo.check_mutual_like(user_from_db_id, user_to_db_id)
             match_created = False
 
@@ -51,7 +46,6 @@ class LikeService:
                 match = await match_repo.create_match(user_from_db_id, user_to_db_id)
                 match_created = match is not None
 
-                # Получаем информацию о другом пользователе
                 other_user = user_to if user_from_db_id == user_from.id else user_from
 
                 return {
@@ -74,18 +68,12 @@ class LikeService:
 
     @staticmethod
     async def dislike_profile(user_from_db_id: int, user_to_db_id: int) -> Dict[str, Any]:
-        """
-        Поставить дизлайк профилю
-        user_from_db_id: ID в БД того, кто ставит дизлайк
-        user_to_db_id: ID в БД того, кому ставят дизлайк
-        """
         print(f"DEBUG: LikeService.dislike_profile: {user_from_db_id} → {user_to_db_id}")
 
         async with AsyncSessionLocal() as session:
             like_repo = LikeRepository(session)
             user_repo = UserRepository(session)
 
-            # Проверяем существование пользователей
             user_from = await user_repo.get_user_by_id(user_from_db_id)
             user_to = await user_repo.get_user_by_id(user_to_db_id)
 
@@ -97,7 +85,6 @@ class LikeService:
 
             print(f"DEBUG: Пользователи найдены: {user_from.name} → {user_to.name}")
 
-            # Сохраняем дизлайк (обновляем существующий лайк на дизлайк или создаем новый)
             like = await like_repo.create_like(user_from_db_id, user_to_db_id, is_like=False)
 
             if like:
@@ -115,30 +102,23 @@ class LikeService:
 
     @staticmethod
     async def get_user_matches(user_id: int) -> List[Dict[str, Any]]:
-        """
-        Получить все мэтчи пользователя
-        """
         async with AsyncSessionLocal() as session:
             match_repo = MatchRepository(session)
             user_repo = UserRepository(session)
 
-            # Получаем пользователя
             user = await user_repo.get_user_by_telegram_id(str(user_id))
             if not user:
                 return []
 
-            # Получаем мэтчи
             matches = await match_repo.get_user_matches(user.id)
 
             matches_list = []
             for match in matches:
-                # Получаем информацию о втором пользователе в мэтче
                 if match.user1_id == user.id:
                     other_user_id = match.user2_id
                 else:
                     other_user_id = match.user1_id
                 
-                # Получаем объект другого пользователя
                 other_user = await user_repo.get_user_by_id(other_user_id)
 
                 if not other_user:
@@ -147,7 +127,7 @@ class LikeService:
             matches_list.append({
                 'match_id': match.id,
                 'user': {
-                    'id': other_user.id,  # ✅ Другой пользователь
+                    'id': other_user.id,  
                     'name': other_user.name,
                     "age": other_user.age,
                     "city": other_user.city,
@@ -161,9 +141,6 @@ class LikeService:
 
     @staticmethod
     async def get_likes_received(user_id: int) -> List[Dict[str, Any]]:
-        """
-        Получить лайки, полученные пользователем
-        """
         async with AsyncSessionLocal() as session:
             like_repo = LikeRepository(session)
             user_repo = UserRepository(session)

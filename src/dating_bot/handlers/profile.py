@@ -33,7 +33,6 @@ async def send_profile_preview(message: Message, state: FSMContext):
 
 
 async def update_user_in_db(message: Message, state: FSMContext, field: str, value):
-    """Обновляет поле пользователя в БД при редактировании"""
     data = await state.get_data()
     telegram_id = data.get('telegram_id')
 
@@ -456,9 +455,6 @@ async def edit_choose_field(message: Message, state: FSMContext):
 
 @router.message(F.text == "🗑️ Удалить анкету")
 async def delete_profile_command(message: Message, state: FSMContext):
-    """
-    Удаление анкеты пользователя
-    """
     await message.answer(
         "⚠️ <b>ВНИМАНИЕ!</b>\n\n"
         "Вы собираетесь УДАЛИТЬ свою анкету и ВСЕ данные:\n"
@@ -475,17 +471,9 @@ async def delete_profile_command(message: Message, state: FSMContext):
 
 @router.message(F.text == "✅ Да, удалить всё", StateFilter("waiting_delete_confirmation"))
 async def confirm_delete_profile(message: Message, state: FSMContext):
-    """
-    Подтверждение удаления анкеты
-    """
     telegram_id = str(message.from_user.id)
-    
-    # Показываем анимацию загрузки
     loading_msg = await message.answer("🗑️ Удаляем ваши данные...")
-    
-    # Удаляем пользователя
     result = await delete_user_completely(telegram_id)
-    
     if result:
         await loading_msg.edit_text(
             "✅ Ваша анкета и все данные успешно удалены!\n\n"
@@ -497,14 +485,10 @@ async def confirm_delete_profile(message: Message, state: FSMContext):
             "❌ Не удалось удалить анкету. Возможно, она уже удалена.\n"
             "Обратитесь к администратору."
         )
-    
     await state.clear()
 
 @router.message(F.text == "❌ Нет, отменить", StateFilter("waiting_delete_confirmation"))
 async def cancel_delete_profile(message: Message, state: FSMContext):
-    """
-    Отмена удаления анкеты
-    """
     await message.answer(
         "Удаление анкеты отменено.\n"
         "Ваши данные сохранены.",

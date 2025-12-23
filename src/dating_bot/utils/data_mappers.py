@@ -1,10 +1,4 @@
-"""
-Модуль для преобразования данных между FSM и БД
-"""
-
-
 def map_gender_to_db(gender_text: str) -> str:
-    """Преобразует текст пола из FSM в значение для БД"""
     if not gender_text:
         return "other"
 
@@ -19,7 +13,6 @@ def map_gender_to_db(gender_text: str) -> str:
     return mapping.get(gender_text.strip(), "other")
 
 def map_goal_to_db(goal_text: str) -> str:
-    """Преобразует цель из FSM в значение для БД"""
     mapping = {
         "💘 Отношения": "relationship",
         "🫂 Дружба": "friendship",
@@ -31,14 +24,13 @@ def map_goal_to_db(goal_text: str) -> str:
     return mapping.get(goal_text.strip(), "relationship")
 
 def map_goal_to_ui(goal_db: str) -> str:
-    """Преобразует цель из БД в текст для UI"""
     mapping = {
         "relationship": "💘 Отношения",
         "friendship": "🫂 Дружба"
     }
     return mapping.get(goal_db, "💘 Отношения")
+
 def map_gender_to_ui(gender_db: str) -> str:
-    """Преобразует пол из БД в текст для UI"""
     if not gender_db:
         return "Не указано"
 
@@ -51,7 +43,6 @@ def map_gender_to_ui(gender_db: str) -> str:
 
 
 def map_target_gender_to_db(target_text: str) -> str:
-    """Преобразует искомый пол из FSM в значение для БД"""
     if not target_text:
         return "any"
 
@@ -67,7 +58,6 @@ def map_target_gender_to_db(target_text: str) -> str:
 
 
 def map_target_gender_to_ui(target_db: str) -> str:
-    """Преобразует искомый пол из БД в текст для UI"""
     if not target_db:
         return "Не важно 👩👱‍♂️"
 
@@ -80,7 +70,6 @@ def map_target_gender_to_ui(target_db: str) -> str:
 
 
 def map_goal_to_db(goal_text: str) -> str:
-    """Преобразует цель из FSM в значение для БД"""
     if not goal_text:
         return "friendship"
 
@@ -94,7 +83,6 @@ def map_goal_to_db(goal_text: str) -> str:
 
 
 def prepare_user_data_for_db(fsm_data: dict) -> dict:
-    """Подготавливает данные из FSM для сохранения в БД"""
     return {
         "name": fsm_data.get("name", "").strip(),
         "age": fsm_data.get("age"),

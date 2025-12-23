@@ -128,28 +128,23 @@ async def finish_test(message: Message, state: FSMContext):
         await state.set_state(PsychologicalTest.welcome)
         return
 
-    # Рассчитываем результаты
     category_scores = calculate_category_scores(answers)
 
-    # Сохраняем результаты в БД
     from src.dating_bot.services.test_service import TestService
     from src.dating_bot.services.user_service import UserService
 
-    # Получаем user_id из БД
     telegram_id = str(message.from_user.id)
     user_profile = await UserService.get_user_profile(telegram_id)
 
     if user_profile and user_profile.get('user'):
         user_id = user_profile['user'].id
 
-        # Сохраняем результаты теста
         test_result = await TestService.save_test_results(
             user_id=user_id,
             answers=answers,
             is_completed=True
         )
 
-    # Обновляем состояние
     await state.update_data(
         test_completed=True,
         test_completed_at=datetime.now().isoformat(),

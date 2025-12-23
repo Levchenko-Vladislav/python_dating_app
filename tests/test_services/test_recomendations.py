@@ -4,35 +4,28 @@ from src.dating_bot.services.recommendations import RecommendationService
 
 
 class TestRecommendationService:
-    """Тесты для RecommendationService"""
-
     @pytest.fixture
     def service(self):
         return RecommendationService()
 
     @pytest.mark.asyncio
     async def test_like_profile_success(self, service):
-        """Тест успешного лайка профиля"""
-        # Мокаем UserService.get_user_profile
         mock_user_service_module = MagicMock()
         mock_user_service_module.UserService.get_user_profile = AsyncMock()
 
         with patch.dict('sys.modules', {'src.dating_bot.services.user_service': mock_user_service_module}):
-            # Настраиваем возвращаемые значения
             mock_user = MagicMock()
             mock_user.id = 1
 
             mock_user_profile = {'user': mock_user}
             mock_user_service_module.UserService.get_user_profile.return_value = mock_user_profile
 
-            # Мокаем остальные зависимости
             with patch('src.dating_bot.services.recommendations.AsyncSessionLocal'):
                 with patch('src.dating_bot.services.recommendations.UserRepository') as mock_user_repo:
                     mock_user_repo_instance = AsyncMock()
                     mock_user_repo_instance.get_user_by_id.return_value = MagicMock(id=2, name="Test", telegram_id=456)
                     mock_user_repo.return_value.__aenter__.return_value = mock_user_repo_instance
 
-                    # Мокаем LikeService.like_profile
                     mock_like_service_module = MagicMock()
                     mock_like_service_module.LikeService.like_profile = AsyncMock(return_value={
                         "is_mutual": True,
@@ -48,22 +41,18 @@ class TestRecommendationService:
 
     @pytest.mark.asyncio
     async def test_dislike_profile_success(self, service):
-        """Тест успешного дизлайка профиля"""
-        # Мокаем UserService.get_user_profile
         mock_user_service_module = MagicMock()
         mock_user_service_module.UserService.get_user_profile = AsyncMock()
 
         with patch.dict('sys.modules', {'src.dating_bot.services.user_service': mock_user_service_module}):
-            # Настраиваем возвращаемые значения
             mock_user = MagicMock()
             mock_user.id = 1
 
             mock_user_service_module.UserService.get_user_profile.side_effect = [
-                {'user': mock_user},  # Первый вызов
-                {'user': MagicMock(id=2)}  # Второй вызов
+                {'user': mock_user}, 
+                {'user': MagicMock(id=2)}  
             ]
 
-            # Мокаем LikeService.dislike_profile
             mock_like_service_module = MagicMock()
             mock_like_service_module.LikeService.dislike_profile = AsyncMock(return_value={
                 "success": True,
@@ -78,7 +67,6 @@ class TestRecommendationService:
 
     @pytest.mark.asyncio
     async def test_get_recommendations_user_not_found(self, service):
-        """Тест получения рекомендаций, когда пользователь не найден"""
         with patch('src.dating_bot.services.recommendations.AsyncSessionLocal') as mock_session:
             mock_user_repo = AsyncMock()
             mock_user_repo.get_user_by_telegram_id.return_value = None
@@ -90,7 +78,6 @@ class TestRecommendationService:
 
     @pytest.mark.asyncio
     async def test_get_recommendations_with_test_results(self, service):
-        """Тест получения рекомендаций с результатами тестов"""
         with patch('src.dating_bot.services.recommendations.AsyncSessionLocal') as mock_session:
             current_user = MagicMock()
             current_user.id = 1
@@ -139,7 +126,6 @@ class TestRecommendationService:
 
     @pytest.mark.asyncio
     async def test_get_recommendations_without_test_results(self, service):
-        """Тест получения рекомендаций без результатов тестов"""
         with patch('src.dating_bot.services.recommendations.AsyncSessionLocal') as mock_session:
             current_user = MagicMock()
             current_user.id = 1
@@ -175,7 +161,6 @@ class TestRecommendationService:
 
     @pytest.mark.asyncio
     async def test_get_recommendations_skip_liked(self, service):
-        """Тест получения рекомендаций, пропуская лайкнутых"""
         with patch('src.dating_bot.services.recommendations.AsyncSessionLocal') as mock_session:
             current_user = MagicMock()
             current_user.id = 1
@@ -203,14 +188,12 @@ class TestRecommendationService:
                 assert len(result) == 0
 
     def test_map_gender_to_ui(self, service):
-        """Тест преобразования пола в UI формат"""
         assert service._map_gender_to_ui("female") == "Женщина 👩"
         assert service._map_gender_to_ui("male") == "Мужчина 🧑"
         assert service._map_gender_to_ui("other") == "other"
         assert service._map_gender_to_ui(None) == "Не указано"
 
     def test_map_goal_to_ui(self, service):
-        """Тест преобразования цели в UI формат"""
         assert service._map_goal_to_ui("relationship") == "💘 Отношения"
         assert service._map_goal_to_ui("friendship") == "🫂 Дружба"
         assert service._map_goal_to_ui("other") == "other"

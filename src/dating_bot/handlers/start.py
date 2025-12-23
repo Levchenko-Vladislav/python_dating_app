@@ -80,7 +80,6 @@ async def agree_handler(message: Message, state: FSMContext):
     data = await state.get_data()
     telegram_id = data.get('telegram_id', str(message.from_user.id))
 
-    # Проверяем по telegram_id (ID)
     user_exists = await UserService.check_user_exists(telegram_id)
 
     if user_exists:

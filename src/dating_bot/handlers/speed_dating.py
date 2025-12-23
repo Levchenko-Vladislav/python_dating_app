@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 async def get_user_db_id(telegram_id: int) -> Optional[int]:
-    """Получить ID пользователя в БД по telegram_id"""
     profile = await UserService.get_user_profile(str(telegram_id))
     if profile and profile.get('user'):
         return profile['user'].id
@@ -31,7 +30,6 @@ async def get_user_db_id(telegram_id: int) -> Optional[int]:
 
 @router.message(F.text == "💞 Мои мэтчи")
 async def show_matches_with_speed_dating(message: Message, state: FSMContext):
-    """Показать мэтчи с возможностью начать спиддейтинг"""
     user_db_id = await get_user_db_id(message.from_user.id)
     if not user_db_id:
         await message.answer("Ошибка: пользователь не найден")
@@ -48,7 +46,6 @@ async def show_matches_with_speed_dating(message: Message, state: FSMContext):
 
     filtered_matches = []
     for match in matches:
-        # match['user'] - это другой пользователь в мэтче
         if match['user']['id'] != user_db_id:  # Пропускаем себя
             filtered_matches.append(match)
     
@@ -68,7 +65,7 @@ async def show_matches_with_speed_dating(message: Message, state: FSMContext):
         user = match['user']
         
         match_text = (
-            f"<b>{i}.</b> 👤 <b>{user['name']}</b>, {user['age']} лет\n"  # ← Добавили номер
+            f"<b>{i}.</b> 👤 <b>{user['name']}</b>, {user['age']} лет\n" 
             f"📍 {user['city']}\n"
             f"💬 {user['username'] if user['username'] else 'Без username'}\n"
             f"💘 Совпали: {match['matched_at'].strftime('%d.%m.%Y')}"
@@ -93,7 +90,6 @@ async def show_matches_with_speed_dating(message: Message, state: FSMContext):
         reply_markup=ReplyKeyboardRemove()
     )
     
-    # Сохраняем мэтчи в состояние
     await state.update_data(matches=filtered_matches)
     await state.set_state(SpeedDatingState.waiting_start)
 
@@ -120,7 +116,7 @@ async def select_match_for_speed_dating(message: Message, state: FSMContext):
                 reply_markup=speed_dating_start_kb()
             )
 
-            await state.set_state(SpeedDatingState.waiting_confirmation)  # <-- НОВОЕ СОСТОЯНИЕ
+            await state.set_state(SpeedDatingState.waiting_confirmation)  
         else:
             await message.answer(
                 f"Пожалуйста, введите число от 1 до {len(matches)}"

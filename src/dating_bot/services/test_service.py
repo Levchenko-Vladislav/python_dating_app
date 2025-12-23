@@ -9,24 +9,17 @@ logger = logging.getLogger(__name__)
 
 
 class TestService:
-    """Сервис для работы с психологическими тестами"""
-
     @staticmethod
     async def save_test_results(
             user_id: int,
             answers: Dict[int, int],
             is_completed: bool = True
     ) -> Dict[str, Any]:
-        """
-        Сохранить результаты теста пользователя
-        """
         async with AsyncSessionLocal() as session:
             repo = TestResultRepository(session)
 
-            # Рассчитываем баллы по категориям
             category_scores = calculate_category_scores(answers)
 
-            # Сохраняем в БД
             test_result = await repo.save_test_result(
                 user_id=user_id,
                 answers=answers,
@@ -50,9 +43,6 @@ class TestService:
 
     @staticmethod
     async def get_user_test_results(user_id: int) -> Optional[Dict[str, Any]]:
-        """
-        Получить результаты теста пользователя
-        """
         async with AsyncSessionLocal() as session:
             repo = TestResultRepository(session)
             test_result = await repo.get_test_result_by_user_id(user_id)
@@ -69,18 +59,12 @@ class TestService:
 
     @staticmethod
     async def delete_test_results(user_id: int) -> bool:
-        """
-        Удалить результаты теста пользователя
-        """
         async with AsyncSessionLocal() as session:
             repo = TestResultRepository(session)
             return await repo.delete_test_result(user_id)
 
     @staticmethod
     async def has_completed_test(user_id: int) -> bool:
-        """
-        Проверить, прошел ли пользователь тест
-        """
         async with AsyncSessionLocal() as session:
             repo = TestResultRepository(session)
             return await repo.is_test_completed(user_id)

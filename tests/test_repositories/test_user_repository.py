@@ -5,8 +5,6 @@ from src.dating_bot.database.repositories.user_repository import UserRepository
 
 
 class TestUserRepository:
-    """Тесты для UserRepository"""
-
     @pytest.fixture
     def mock_session(self):
         return AsyncMock(spec=AsyncSession)
@@ -17,7 +15,6 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_get_all_active_users(self, repository, mock_session):
-        """Тест получения всех активных пользователей"""
         mock_user1 = MagicMock()
         mock_user1.id = 1001
         mock_user2 = MagicMock()
@@ -42,7 +39,6 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_create_user_duplicate(self, user_repository):
-        """Создание дубликата пользователя"""
         user1 = await user_repository.create_user(
             telegram_id=111222333,
             name="Первый",
@@ -62,14 +58,12 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_get_user_by_telegram_id_not_found(self, user_repository):
-        """Поиск несуществующего пользователя"""
         user = await user_repository.get_user_by_telegram_id(999999999)
 
         assert user is None
 
     @pytest.mark.asyncio
     async def test_update_user_success(self, user_repository):
-        """Успешное обновление пользователя"""
         created_user = await user_repository.create_user(
             telegram_id=111222333,
             name="Исходный",
@@ -95,7 +89,6 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_update_user_not_found(self, user_repository):
-        """Обновление несуществующего пользователя"""
         updated = await user_repository.update_user(
             telegram_id=999999999,
             age=30
@@ -105,7 +98,6 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_delete_user_success(self, user_repository):
-        """Успешное удаление (деактивация)"""
         created_user = await user_repository.create_user(
             telegram_id=111222333,
             name="Тестовый",
@@ -122,14 +114,12 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_delete_user_not_found(self, user_repository):
-        """Удаление несуществующего пользователя"""
         result = await user_repository.delete_user(999999999)
 
         assert result is False
 
     @pytest.mark.asyncio
     async def test_user_exists_true(self, user_repository):
-        """Проверка существования пользователя"""
         await user_repository.create_user(
             telegram_id=111222333,
             name="Тестовый",
@@ -142,15 +132,12 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_user_exists_false(self, user_repository):
-        """Проверка несуществующего пользователя"""
         exists = await user_repository.user_exists(999999999)
 
         assert exists is False
 
     @pytest.mark.asyncio
     async def test_count_users(self, user_repository):
-        """Подсчет пользователей"""
-        # Создаем несколько пользователей
         await user_repository.create_user(telegram_id=1001, name="Первый")
         await user_repository.create_user(telegram_id=1002, name="Второй")
         await user_repository.create_user(telegram_id=1003, name="Третий")
@@ -161,7 +148,6 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_count_users_empty(self, user_repository):
-        """Подсчет в пустой БД"""
         count = await user_repository.count_users()
 
         assert count == 0
