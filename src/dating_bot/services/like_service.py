@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Dict, Any, Tuple, List
+from typing import Dict, Any, List
 
 from src.dating_bot.database.session import AsyncSessionLocal
 from src.dating_bot.database.repositories.like_repository import LikeRepository
@@ -68,7 +68,6 @@ class LikeService:
 
     @staticmethod
     async def dislike_profile(user_from_db_id: int, user_to_db_id: int) -> Dict[str, Any]:
-        print(f"DEBUG: LikeService.dislike_profile: {user_from_db_id} → {user_to_db_id}")
 
         async with AsyncSessionLocal() as session:
             like_repo = LikeRepository(session)
@@ -83,18 +82,14 @@ class LikeService:
                     "message": "Пользователь не найден"
                 }
 
-            print(f"DEBUG: Пользователи найдены: {user_from.name} → {user_to.name}")
-
             like = await like_repo.create_like(user_from_db_id, user_to_db_id, is_like=False)
 
             if like:
-                print(f"DEBUG: Дизлайк сохранен: {like}")
                 return {
                     "success": True,
                     "message": "👎 Профиль пропущен"
                 }
             else:
-                print(f"DEBUG: Ошибка сохранения дизлайка")
                 return {
                     "success": False,
                     "message": "Ошибка при сохранении дизлайка"

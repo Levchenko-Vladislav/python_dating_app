@@ -28,17 +28,17 @@ async def migrate_database():
             
             for required_col in required_columns:
                 if required_col not in column_names:
-                    print(f"❌ Колонка {required_col} отсутствует! Добавляем...")
+                    print(f"Колонка {required_col} отсутствует! Добавляем...")
                     await add_column(conn, required_col)
                 else:
-                    print(f"✅ Колонка {required_col} уже существует.")
+                    print(f"Колонка {required_col} уже существует.")
         
         await init_database()
         
-        print("✅ Миграция завершена.")
+        print("Миграция завершена.")
         
     except Exception as e:
-        print(f"❌ Ошибка миграции: {e}")
+        print(f"Ошибка миграции: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
@@ -55,9 +55,9 @@ async def add_column(conn, column_name):
             
         await conn.execute(text(sql))
         await conn.commit()
-        print(f"✅ Колонка {column_name} успешно добавлена!")
+        print(f"Колонка {column_name} успешно добавлена!")
     except Exception as e:
-        print(f"❌ Ошибка при добавлении колонки {column_name}: {e}")
+        print(f"Ошибка при добавлении колонки {column_name}: {e}")
 
 if __name__ == "__main__":
     asyncio.run(migrate_database())

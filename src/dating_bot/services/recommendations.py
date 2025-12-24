@@ -6,7 +6,9 @@ from src.dating_bot.database.repositories.test_result_repository import TestResu
 from src.dating_bot.database.repositories.like_repository import LikeRepository
 import random
 from src.dating_bot.database.repositories.match_repository import MatchRepository
+import logging
 
+logger = logging.getLogger(__name__)
 
 class RecommendationService:
     def __init__(self):

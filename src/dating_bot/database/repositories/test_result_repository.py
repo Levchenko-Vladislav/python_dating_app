@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 import logging
 
 from src.dating_bot.database.models import UserTestResult

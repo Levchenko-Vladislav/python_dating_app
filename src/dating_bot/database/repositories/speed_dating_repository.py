@@ -1,6 +1,5 @@
-from sqlalchemy import select, and_, or_, update
+from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 import logging

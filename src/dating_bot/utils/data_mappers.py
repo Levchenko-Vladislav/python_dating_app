@@ -69,19 +69,6 @@ def map_target_gender_to_ui(target_db: str) -> str:
     return mapping.get(target_db, "Не важно 👩👱‍♂️")
 
 
-def map_goal_to_db(goal_text: str) -> str:
-    if not goal_text:
-        return "friendship"
-
-    mapping = {
-        "💘 Отношения": "relationship",
-        "🫂 Дружба": "friendship",
-        "Отношения": "relationship",
-        "Дружба": "friendship"
-    }
-    return mapping.get(goal_text.strip(), "friendship")
-
-
 def prepare_user_data_for_db(fsm_data: dict) -> dict:
     return {
         "name": fsm_data.get("name", "").strip(),

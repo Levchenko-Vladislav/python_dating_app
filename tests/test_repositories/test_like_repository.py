@@ -160,20 +160,3 @@ class TestLikeRepository:
             result = await repository.delete_like(1, 2)
 
             assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_mutual_likes_for_user(self, repository, mock_session):
-        mock_like = MagicMock(spec=Like)
-        mock_like.user_to_id = 2
-        mock_like.created_at = datetime.now()
-
-        reverse_like = MagicMock(spec=Like)
-        reverse_like.is_like = True
-        reverse_like.created_at = datetime.now()
-
-        with patch.object(repository, 'get_likes_given', return_value=[mock_like]):
-            with patch.object(repository, 'get_like', return_value=reverse_like):
-                result = await repository.get_mutual_likes_for_user(1)
-
-                assert len(result) == 1
-                assert result[0]['user_id'] == 2

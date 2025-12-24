@@ -7,7 +7,6 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.filters import CommandStart
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,7 +17,7 @@ try:
     from src.dating_bot.handlers.menu import router as menu_router
     from src.dating_bot.handlers.psychological_test import router as test_router
     from src.dating_bot.handlers.browse import router as browse_router
-    from src.dating_bot.handlers.speed_dating import router as speed_dating_router  # ← ЗАМЕНИТЕ matches на speed_dating!
+    from src.dating_bot.handlers.speed_dating import router as speed_dating_router
 
     logger.info("Все обработчики импортированы")
 except ImportError as e:
@@ -67,7 +66,7 @@ async def main():
     dp.include_router(menu_router)
     dp.include_router(test_router)
     dp.include_router(browse_router)
-    dp.include_router(speed_dating_router)  # ← ЗАМЕНИТЕ matches на speed_dating!
+    dp.include_router(speed_dating_router)
 
     logger.info("Бот запускается...")
 

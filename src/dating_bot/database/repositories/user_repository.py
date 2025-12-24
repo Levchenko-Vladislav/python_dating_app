@@ -2,10 +2,10 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 import logging
 
-from src.dating_bot.database.models import User, UserTestResult
+from src.dating_bot.database.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -79,11 +79,6 @@ class UserRepository:
             )
             user = result.scalar_one_or_none()
 
-            if user:
-                logger.debug(f"Найден пользователь: telegram_id={telegram_id}")
-            else:
-                logger.debug(f"Пользователь не найден: telegram_id={telegram_id}")
-
             return user
 
         except Exception as e:
@@ -99,11 +94,6 @@ class UserRepository:
                 select(User).where(User.username == username)
             )
             user = result.scalar_one_or_none()
-
-            if user:
-                logger.debug(f"Найден пользователь: username={username}")
-            else:
-                logger.debug(f"Пользователь не найден: username={username}")
 
             return user
 
@@ -206,7 +196,6 @@ class UserRepository:
                     (SpeedDatingSession.user2_id == user_id)
                 )
             )
-            logger.debug(f"Удалены сессии спиддейтинга для пользователя {user_id}")
             
             # 2. Удаляем мэтчи
             await self.session.execute(
@@ -215,8 +204,7 @@ class UserRepository:
                     (Match.user2_id == user_id)
                 )
             )
-            logger.debug(f"Удалены мэтчи для пользователя {user_id}")
-            
+
             # 3. Удаляем лайки (где пользователь был отправителем или получателем)
             await self.session.execute(
                 delete(Like).where(
@@ -224,7 +212,6 @@ class UserRepository:
                     (Like.user_to_id == user_id)
                 )
             )
-            logger.debug(f"Удалены лайки для пользователя {user_id}")
             
             # 4. Удаляем результаты теста
             await self.session.execute(
@@ -232,7 +219,6 @@ class UserRepository:
                     UserTestResult.user_id == user_id
                 )
             )
-            logger.debug(f"Удалены результаты теста для пользователя {user_id}")
             
             # 5. Удаляем самого пользователя
             await self.session.execute(
@@ -272,3 +258,13 @@ class UserRepository:
         except Exception as e:
             logger.error(f"Ошибка получения активных пользователей: {e}")
             return []
+
+    async def count_users(self) -> int:
+        """Подсчитать общее количество пользователей"""
+        try:
+            from sqlalchemy import func, select
+            result = await self.session.execute(select(func.count(User.id)))
+            return result.scalar()
+        except Exception as e:
+            logger.error(f"Ошибка подсчета пользователей: {e}")
+            return 0
