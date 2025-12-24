@@ -19,7 +19,6 @@ async def migrate_database():
                 lambda sync_conn: inspector.get_columns('speed_dating_sessions')
             )
             
-            print("Текущие столбцы в speed_dating_sessions:")
             for col in columns:
                 print(f"  - {col['name']} ({col['type']})")
             
@@ -34,11 +33,8 @@ async def migrate_database():
                     print(f"Колонка {required_col} уже существует.")
         
         await init_database()
-        
-        print("Миграция завершена.")
-        
+                
     except Exception as e:
-        print(f"Ошибка миграции: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
@@ -50,12 +46,10 @@ async def add_column(conn, column_name):
         elif column_name == 'updated_at':
             sql = "ALTER TABLE speed_dating_sessions ADD COLUMN updated_at DATETIME"
         else:
-            print(f"Неизвестная колонка: {column_name}")
             return
             
         await conn.execute(text(sql))
         await conn.commit()
-        print(f"Колонка {column_name} успешно добавлена!")
     except Exception as e:
         print(f"Ошибка при добавлении колонки {column_name}: {e}")
 
