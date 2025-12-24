@@ -5,10 +5,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.dating_bot.database.session import init_database
-from sqlalchemy import text  # <-- ДОБАВЬТЕ ЭТОТ ИМПОРТ
+from sqlalchemy import text 
 
 async def migrate_database():
-    """Выполнить миграцию базы данных"""
     try:
         from src.dating_bot.database.session import engine
         from sqlalchemy import inspect, text
@@ -16,7 +15,6 @@ async def migrate_database():
         async with engine.connect() as conn:
             inspector = await conn.run_sync(lambda sync_conn: inspect(sync_conn))
             
-            # Проверим столбцы в speed_dating_sessions
             columns = await conn.run_sync(
                 lambda sync_conn: inspector.get_columns('speed_dating_sessions')
             )
@@ -25,7 +23,6 @@ async def migrate_database():
             for col in columns:
                 print(f"  - {col['name']} ({col['type']})")
             
-            # Проверим все необходимые колонки
             column_names = [col['name'] for col in columns]
             required_columns = ['current_responder_id', 'updated_at']
             
@@ -36,7 +33,6 @@ async def migrate_database():
                 else:
                     print(f"✅ Колонка {required_col} уже существует.")
         
-        # Затем инициализируем БД
         await init_database()
         
         print("✅ Миграция завершена.")
@@ -48,7 +44,6 @@ async def migrate_database():
         sys.exit(1)
 
 async def add_column(conn, column_name):
-    """Добавить колонку в таблицу speed_dating_sessions"""
     try:
         if column_name == 'current_responder_id':
             sql = "ALTER TABLE speed_dating_sessions ADD COLUMN current_responder_id INTEGER"

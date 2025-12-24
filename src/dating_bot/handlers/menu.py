@@ -4,7 +4,6 @@ from aiogram.fsm.context import FSMContext
 from src.dating_bot.bot.states import Profile
 from src.dating_bot.bot.keyboards import edit_menu_kb, main_menu_kb
 
-# Импорты для работы с БД
 from src.dating_bot.services.user_service import UserService
 from src.dating_bot.services.test_service import TestService
 from src.dating_bot.utils.data_mappers import map_gender_to_ui, map_target_gender_to_ui
@@ -22,24 +21,18 @@ async def start_test_from_menu(message: Message, state: FSMContext):
 @router.message(F.text == "👤 Мой профиль")
 async def show_my_profile_menu(message: Message, state: FSMContext):
     telegram_id = str(message.from_user.id)
-
-    # Получаем данные из БД
     user_profile_data = await UserService.get_user_profile(telegram_id)
 
     if user_profile_data and user_profile_data.get('user'):
         user = user_profile_data['user']
 
-        # Проверяем в БД, прошел ли пользователь тест
         has_completed_test = await TestService.has_completed_test(user.id)
 
-        # Получаем данные из состояния (для полей, которых нет в БД)
         state_data = await state.get_data()
         goal_text = map_goal_to_ui(user.goal) if user.goal else "Не указано"
 
-        # Определяем статус теста
         test_status = "✅ Тест пройден" if has_completed_test else "❌ Тест не пройден"
 
-        # Если тест пройден, получаем результаты
         test_results_text = ""
         if has_completed_test:
             test_results = await TestService.get_user_test_results(user.id)
@@ -75,7 +68,6 @@ async def show_my_profile_menu(message: Message, state: FSMContext):
             reply_markup=main_menu_kb()
         )
     else:
-        # Если нет в БД, проверяем состояние
         data = await state.get_data()
         if data.get("photo_id"):
             await message.answer_photo(

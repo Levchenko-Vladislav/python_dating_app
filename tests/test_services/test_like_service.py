@@ -7,7 +7,6 @@ class TestLikeService:
 
     @pytest.mark.asyncio
     async def test_like_profile_users_not_found(self):
-        """Тест лайка профиля, когда пользователи не найдены"""
         with patch('src.dating_bot.services.like_service.AsyncSessionLocal') as mock_session:
             mock_repo = AsyncMock()
             mock_repo.get_user_by_id.return_value = None
@@ -24,7 +23,6 @@ class TestLikeService:
 
     @pytest.mark.asyncio
     async def test_like_profile_success_no_mutual(self):
-        """Тест успешного лайка без взаимности"""
         with patch('src.dating_bot.services.like_service.AsyncSessionLocal') as mock_session:
             mock_user_repo = AsyncMock()
             mock_user1 = MagicMock()
@@ -50,7 +48,6 @@ class TestLikeService:
 
     @pytest.mark.asyncio
     async def test_like_profile_success_with_mutual(self):
-        """Тест успешного лайка с взаимностью и созданием мэтча"""
         with patch('src.dating_bot.services.like_service.AsyncSessionLocal') as mock_session:
             mock_user_repo = AsyncMock()
             mock_user1 = MagicMock()
@@ -88,7 +85,6 @@ class TestLikeService:
 
     @pytest.mark.asyncio
     async def test_dislike_profile_success(self):
-        """Тест успешного дизлайка"""
         with patch('src.dating_bot.services.like_service.AsyncSessionLocal') as mock_session:
             mock_user_repo = AsyncMock()
             mock_user1 = MagicMock()
@@ -109,7 +105,6 @@ class TestLikeService:
 
     @pytest.mark.asyncio
     async def test_get_user_matches_user_not_found(self):
-        """Тест получения мэтчей пользователя, который не найден"""
         with patch('src.dating_bot.services.like_service.AsyncSessionLocal') as mock_session:
             mock_user_repo = AsyncMock()
             mock_user_repo.get_user_by_telegram_id.return_value = None
@@ -121,7 +116,6 @@ class TestLikeService:
 
     @pytest.mark.asyncio
     async def test_get_user_matches_success(self):
-        """Тест успешного получения мэтчей"""
         with patch('src.dating_bot.services.like_service.AsyncSessionLocal') as mock_session:
             mock_user = MagicMock()
             mock_user.id = 1
@@ -158,7 +152,6 @@ class TestLikeService:
 
     @pytest.mark.asyncio
     async def test_get_likes_received_user_not_found(self):
-        """Тест получения полученных лайков, когда пользователь не найден"""
         with patch('src.dating_bot.services.like_service.AsyncSessionLocal') as mock_session:
             mock_user_repo = AsyncMock()
             mock_user_repo.get_user_by_telegram_id.return_value = None

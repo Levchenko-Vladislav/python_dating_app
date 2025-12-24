@@ -9,7 +9,6 @@ from src.dating_bot.database.repositories.like_repository import LikeRepository
 
 
 class TestLikeRepository:
-    """Тесты для LikeRepository"""
 
     @pytest.fixture
     def mock_session(self):
@@ -21,7 +20,6 @@ class TestLikeRepository:
 
     @pytest.mark.asyncio
     async def test_get_likes_received(self, repository, mock_session):
-        """Тест получения полученных лайков"""
         mock_like1 = MagicMock()
         mock_like2 = MagicMock()
 
@@ -41,7 +39,6 @@ class TestLikeRepository:
 
     @pytest.mark.asyncio
     async def test_get_likes_given(self, repository, mock_session):
-        """Тест получения поставленных лайков"""
         mock_like = MagicMock()
 
         mock_scalars_result = MagicMock()
@@ -59,7 +56,6 @@ class TestLikeRepository:
 
     @pytest.mark.asyncio
     async def test_create_like_new(self, repository, mock_session):
-        """Тест создания нового лайка"""
         mock_session.execute.return_value = AsyncMock(scalar_one_or_none=MagicMock(return_value=None))
         mock_session.add = MagicMock()
         mock_session.commit = AsyncMock()
@@ -73,7 +69,6 @@ class TestLikeRepository:
 
     @pytest.mark.asyncio
     async def test_create_like_update(self, repository, mock_session):
-        """Тест обновления существующего лайка"""
         existing_like = MagicMock(spec=Like)
         existing_like.is_like = False
         mock_session.execute.return_value = AsyncMock(scalar_one_or_none=MagicMock(return_value=existing_like))
@@ -88,7 +83,6 @@ class TestLikeRepository:
 
     @pytest.mark.asyncio
     async def test_create_like_integrity_error(self, repository, mock_session):
-        """Тест создания лайка с ошибкой целостности"""
         mock_session.execute.return_value = AsyncMock(scalar_one_or_none=MagicMock(return_value=None))
         mock_session.commit = AsyncMock(side_effect=IntegrityError("test", "test", "test"))
         mock_session.rollback = AsyncMock()
@@ -100,7 +94,6 @@ class TestLikeRepository:
 
     @pytest.mark.asyncio
     async def test_get_like_found(self, repository, mock_session):
-        """Тест получения существующего лайка"""
         mock_like = MagicMock(spec=Like)
         mock_session.execute.return_value = AsyncMock(scalar_one_or_none=MagicMock(return_value=mock_like))
 
@@ -110,7 +103,6 @@ class TestLikeRepository:
 
     @pytest.mark.asyncio
     async def test_get_like_not_found(self, repository, mock_session):
-        """Тест получения несуществующего лайка"""
         mock_session.execute.return_value = AsyncMock(scalar_one_or_none=MagicMock(return_value=None))
 
         result = await repository.get_like(1, 2)
@@ -119,7 +111,6 @@ class TestLikeRepository:
 
     @pytest.mark.asyncio
     async def test_check_mutual_like_true(self, repository, mock_session):
-        """Тест проверки взаимного лайка (True)"""
         like1 = MagicMock(spec=Like)
         like1.is_like = True
         like2 = MagicMock(spec=Like)
@@ -134,8 +125,6 @@ class TestLikeRepository:
 
     @pytest.mark.asyncio
     async def test_check_mutual_like_false(self, repository, mock_session):
-        """Тест проверки взаимного лайка (False)"""
-        # Тест 1: нет лайка от user1 к user2
         with patch.object(repository, 'get_like') as mock_get_like:
             mock_get_like.side_effect = [None, MagicMock()]
 
@@ -143,7 +132,6 @@ class TestLikeRepository:
 
             assert result is False
 
-        # Тест 2: user1 поставил дизлайк
         like1 = MagicMock(spec=Like)
         like1.is_like = False
         with patch.object(repository, 'get_like') as mock_get_like:
@@ -155,7 +143,6 @@ class TestLikeRepository:
 
     @pytest.mark.asyncio
     async def test_delete_like_success(self, repository, mock_session):
-        """Тест успешного удаления лайка"""
         mock_like = MagicMock(spec=Like)
         with patch.object(repository, 'get_like', return_value=mock_like):
             mock_session.delete = AsyncMock()
@@ -169,7 +156,6 @@ class TestLikeRepository:
 
     @pytest.mark.asyncio
     async def test_delete_like_not_found(self, repository, mock_session):
-        """Тест удаления несуществующего лайка"""
         with patch.object(repository, 'get_like', return_value=None):
             result = await repository.delete_like(1, 2)
 
@@ -177,7 +163,6 @@ class TestLikeRepository:
 
     @pytest.mark.asyncio
     async def test_get_mutual_likes_for_user(self, repository, mock_session):
-        """Тест получения взаимных лайков пользователя"""
         mock_like = MagicMock(spec=Like)
         mock_like.user_to_id = 2
         mock_like.created_at = datetime.now()

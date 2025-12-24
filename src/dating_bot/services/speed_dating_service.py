@@ -51,7 +51,6 @@ class SpeedDatingService:
                     "is_new": False,
                 }
 
-            # если existing_session нет — идём дальше, и серого больше не будет ✅
             questions = get_random_questions(5)
 
             new_session = await speed_dating_repo.create_session(
@@ -135,7 +134,6 @@ class SpeedDatingService:
 
     @staticmethod
     async def cancel_session(session_id: int) -> Dict[str, Any]:
-        """Отменить сессию"""
         async with AsyncSessionLocal() as session:
             speed_dating_repo = SpeedDatingRepository(session)
             

@@ -6,8 +6,6 @@ from src.dating_bot.database.models import UserTestResult
 
 
 class TestTestResultRepository:
-    """Тесты для TestResultRepository"""
-
     @pytest.fixture
     def mock_session(self):
         return AsyncMock(spec=AsyncSession)
@@ -18,7 +16,6 @@ class TestTestResultRepository:
 
     @pytest.mark.asyncio
     async def test_get_test_result_by_user_id_success(self, repository, mock_session):
-        """Тест успешного получения результатов теста"""
         mock_result = MagicMock(spec=UserTestResult)
         mock_session.execute.return_value = AsyncMock(scalar_one_or_none=MagicMock(return_value=mock_result))
 
@@ -28,7 +25,6 @@ class TestTestResultRepository:
 
     @pytest.mark.asyncio
     async def test_get_test_result_by_user_id_not_found(self, repository, mock_session):
-        """Тест получения результатов теста, которых нет"""
         mock_session.execute.return_value = AsyncMock(scalar_one_or_none=MagicMock(return_value=None))
 
         result = await repository.get_test_result_by_user_id(1)
@@ -37,7 +33,6 @@ class TestTestResultRepository:
 
     @pytest.mark.asyncio
     async def test_save_test_result_new(self, repository, mock_session):
-        """Тест сохранения новых результатов теста"""
         mock_session.execute.return_value = AsyncMock(scalar_one_or_none=MagicMock(return_value=None))
         mock_session.add = MagicMock()
         mock_session.commit = AsyncMock()
@@ -54,7 +49,6 @@ class TestTestResultRepository:
 
     @pytest.mark.asyncio
     async def test_save_test_result_update(self, repository, mock_session):
-        """Тест обновления существующих результатов теста"""
         existing_result = MagicMock(spec=UserTestResult)
         existing_result.answers = {}
         existing_result.category_scores = {}
@@ -75,7 +69,6 @@ class TestTestResultRepository:
 
     @pytest.mark.asyncio
     async def test_delete_test_result_success(self, repository, mock_session):
-        """Тест успешного удаления результатов теста"""
         mock_result = MagicMock(spec=UserTestResult)
         mock_session.execute.return_value = AsyncMock(scalar_one_or_none=MagicMock(return_value=mock_result))
         mock_session.delete = AsyncMock()
@@ -89,7 +82,6 @@ class TestTestResultRepository:
 
     @pytest.mark.asyncio
     async def test_delete_test_result_not_found(self, repository, mock_session):
-        """Тест удаления несуществующих результатов теста"""
         mock_session.execute.return_value = AsyncMock(scalar_one_or_none=MagicMock(return_value=None))
 
         result = await repository.delete_test_result(1)
@@ -98,7 +90,6 @@ class TestTestResultRepository:
 
     @pytest.mark.asyncio
     async def test_is_test_completed_true(self, repository, mock_session):
-        """Тест проверки завершенности теста (True)"""
         mock_result = MagicMock(spec=UserTestResult)
         mock_result.is_completed = True
         mock_session.execute.return_value = AsyncMock(scalar_one_or_none=MagicMock(return_value=mock_result))
@@ -109,7 +100,6 @@ class TestTestResultRepository:
 
     @pytest.mark.asyncio
     async def test_is_test_completed_false(self, repository, mock_session):
-        """Тест проверки завершенности теста (False)"""
         mock_session.execute.return_value = AsyncMock(scalar_one_or_none=MagicMock(return_value=None))
 
         result = await repository.is_test_completed(1)

@@ -4,11 +4,8 @@ from datetime import datetime
 
 
 class TestUserService:
-    """Тесты UserService"""
-
     @pytest.mark.asyncio
     async def test_register_user_new(self):
-        """Регистрация нового пользователя"""
         from src.dating_bot.services import UserService
 
         with patch('src.dating_bot.services.user_service.AsyncSessionLocal') as mock_session_local:
@@ -44,7 +41,6 @@ class TestUserService:
 
     @pytest.mark.asyncio
     async def test_register_user_existing(self):
-        """Регистрация существующего пользователя"""
         from src.dating_bot.services import UserService
 
         with patch('src.dating_bot.services.user_service.AsyncSessionLocal') as mock_session_local:
@@ -76,7 +72,6 @@ class TestUserService:
 
     @pytest.mark.asyncio
     async def test_get_user_profile_success(self):
-        """Получение профиля существующего пользователя"""
         from src.dating_bot.services import UserService
 
         with patch('src.dating_bot.services.user_service.AsyncSessionLocal') as mock_session_local:
@@ -112,7 +107,6 @@ class TestUserService:
 
     @pytest.mark.asyncio
     async def test_update_user_profile_success(self):
-        """Успешное обновление профиля"""
         from src.dating_bot.services import UserService
 
         with patch('src.dating_bot.services.user_service.AsyncSessionLocal') as mock_session_local:
@@ -147,7 +141,6 @@ class TestUserService:
 
     @pytest.mark.asyncio
     async def test_delete_user_profile_not_found(self):
-        """Удаление несуществующего профиля"""
         from src.dating_bot.services import UserService
 
         with patch('src.dating_bot.services.user_service.AsyncSessionLocal') as mock_session_local:
@@ -165,7 +158,6 @@ class TestUserService:
 
     @pytest.mark.asyncio
     async def test_check_user_exists_true(self):
-        """Проверка существующего пользователя"""
         from src.dating_bot.services import UserService
 
         with patch('src.dating_bot.services.user_service.AsyncSessionLocal') as mock_session_local:
@@ -182,7 +174,6 @@ class TestUserService:
 
     @pytest.mark.asyncio
     async def test_check_user_exists_false(self):
-        """Проверка несуществующего пользователя"""
         from src.dating_bot.services import UserService
 
         with patch('src.dating_bot.services.user_service.AsyncSessionLocal') as mock_session_local:
@@ -199,7 +190,6 @@ class TestUserService:
 
     @pytest.mark.asyncio
     async def test_get_user_stats(self):
-        """Получение статистики пользователей"""
         from src.dating_bot.services import UserService
         from unittest.mock import AsyncMock, patch
 
@@ -227,7 +217,6 @@ class TestUserService:
 
     @pytest.mark.asyncio
     async def test_get_user_stats_empty(self):
-        """Статистика пустой БД"""
         from src.dating_bot.services import UserService
 
         with patch('src.dating_bot.services.user_service.AsyncSessionLocal') as mock_session_local:

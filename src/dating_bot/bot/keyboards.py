@@ -183,9 +183,6 @@ def speed_dating_question_kb() -> ReplyKeyboardMarkup:
     )
 
 def confirmation_kb():
-    """
-    Клавиатура для подтверждения действий
-    """
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="✅ Да, удалить всё")],

@@ -1,8 +1,6 @@
-#!/usr/bin/env python3
 import sys
 import os
 
-# Добавляем текущую директорию в путь Python
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import asyncio
@@ -11,11 +9,9 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.filters import CommandStart
 
-# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Импорты ваших обработчиков
 try:
     from src.dating_bot.handlers.start import router as start_router
     from src.dating_bot.handlers.profile import router as profile_router
@@ -32,11 +28,9 @@ except ImportError as e:
 
 
 async def main():
-    # Получаем токен бота
     BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
     if not BOT_TOKEN:
-        # Попробуем прочитать из .env файла
         try:
             with open('.env', 'r') as f:
                 for line in f:
@@ -49,7 +43,6 @@ async def main():
             pass
 
         if not BOT_TOKEN:
-            # Запросим у пользователя
             BOT_TOKEN = input("Введите токен бота: ").strip()
 
     if not BOT_TOKEN:
