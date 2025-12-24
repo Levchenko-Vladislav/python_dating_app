@@ -182,8 +182,9 @@ async def process_like(callback: CallbackQuery, state: FSMContext, bot: Bot):
 
                         await bot.send_message(
                             chat_id=int(second_user_telegram_id),
-                            text=f"🎉 У вас взаимная симпатия с {first_user.name}! Начнем Speed Dating?\n\n"
-                                 f"💞 Посмотреть все мэтчи можно в главном меню!",
+                            text=f"🎉 У вас взаимная симпатия с {first_user.name}! 💞\n\n"
+                                 f"✨ Перейдите в раздел 'Мэтчи' в главном меню, "
+                                 f"чтобы начать Speed Dating!",
                             reply_markup=main_menu_kb()
                         )
                         print(f"✅ Уведомление отправлено пользователю {second_user_telegram_id}")
@@ -191,7 +192,8 @@ async def process_like(callback: CallbackQuery, state: FSMContext, bot: Bot):
                     print(f"❌ Ошибка отправки уведомления: {e}")
 
             await callback.message.answer(
-                "Что хочешь сделать дальше?",
+                "✨ Перейдите в раздел 'Мэтчи' в главном меню, "
+                "чтобы начать Speed Dating с этим пользователем! 💞",
                 reply_markup=main_menu_kb()
             )
             await state.clear()

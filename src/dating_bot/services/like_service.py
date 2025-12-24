@@ -124,18 +124,18 @@ class LikeService:
                 if not other_user:
                     continue 
 
-            matches_list.append({
-                'match_id': match.id,
-                'user': {
-                    'id': other_user.id,  
-                    'name': other_user.name,
-                    "age": other_user.age,
-                    "city": other_user.city,
-                    "photo_id": other_user.photo_id,
-                    "username": other_user.username
-                },
-                "matched_at": match.matched_at
-            })
+                matches_list.append({
+                    'match_id': match.id,
+                    'user': {
+                        'id': other_user.id,  
+                        'name': other_user.name,
+                        "age": other_user.age,
+                        "city": other_user.city,
+                        "photo_id": other_user.photo_id,
+                        "username": other_user.username
+                    },
+                    "matched_at": match.matched_at
+                })
 
             return matches_list
 

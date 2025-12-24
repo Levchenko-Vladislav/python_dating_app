@@ -5,126 +5,229 @@ from src.dating_bot.database.repositories.user_repository import UserRepository
 from src.dating_bot.database.repositories.test_result_repository import TestResultRepository
 from src.dating_bot.database.repositories.like_repository import LikeRepository
 import random
+from src.dating_bot.database.repositories.match_repository import MatchRepository
 
 
 class RecommendationService:
     def __init__(self):
         self.compatibility_calculator = CompatibilityCalculator()
 
-    async def get_recommendations(self, user_id: int, limit: int = 10) -> List[Dict]:
+    async def get_recommendations(
+        self, 
+        user_id: int, 
+        limit: int = 10,
+        gender_filter: Optional[str] = None,
+        goal_filter: Optional[str] = None,
+        age_min: Optional[int] = None,
+        age_max: Optional[int] = None,
+        city_filter: Optional[str] = None
+    ) -> List[Dict]:
         async with AsyncSessionLocal() as session:
             user_repo = UserRepository(session)
             test_repo = TestResultRepository(session)
             like_repo = LikeRepository(session)
+            match_repo = MatchRepository(session)
 
+            # 1. Получаем текущего пользователя
             current_user = await user_repo.get_user_by_telegram_id(str(user_id))
             if not current_user:
-                print(f"Пользователь {user_id} не найден в БД")
+                logger.warning(f"Пользователь {user_id} не найден в БД")
                 return []
 
-            current_test = await test_repo.get_test_result_by_user_id(current_user.id)
 
-            recommendations = []
-            for user in await user_repo.get_all_active_users():
+            # 2. Получаем тест текущего пользователя
+            current_test = await test_repo.get_test_result_by_user_id(current_user.id)
+            
+            # 3. Собираем фильтры
+            filters = self._build_filters(
+                current_user=current_user,
+                gender_filter=gender_filter,
+                goal_filter=goal_filter,
+                age_min=age_min,
+                age_max=age_max,
+                city_filter=city_filter
+            )
+            
+            # 4. Получаем всех активных пользователей
+            all_users = await user_repo.get_all_active_users()
+            
+            # 5. Фильтруем пользователей
+            filtered_users = []
+            for user in all_users:
+                # Пропускаем себя
                 if user.id == current_user.id:
                     continue
-
+                
+                # Проверяем базовую совместимость
+                if not self._check_basic_compatibility(current_user, user, filters):
+                    continue
+                
+                # Проверяем, не лайкали ли уже
                 existing_like = await like_repo.get_like(current_user.id, user.id)
                 if existing_like:
                     continue
-
+                
+                # Проверяем, нет ли уже мэтча
+                existing_match = await match_repo.get_match(current_user.id, user.id)
+                if existing_match:
+                    continue
+                
+                filtered_users.append(user)
+            
+            
+            # 7. Рассчитываем совместимость для отфильтрованных пользователей
+            recommendations = []
+            for user in filtered_users[:limit * 2]:  # Берем в 2 раза больше для сортировки
                 other_test = await test_repo.get_test_result_by_user_id(user.id)
-
-                if current_test and current_test.is_completed and other_test and other_test.is_completed:
-                    compatibility = self.compatibility_calculator.calculate_compatibility(
-                        current_test.answers,
-                        other_test.answers
-                    )
-                    description = self.compatibility_calculator.get_compatibility_description(compatibility)
-                else:
-                    compatibility = round(random.uniform(50, 95), 1)
-                    description = "Предварительная оценка"
-
+                
+                # Рассчитываем совместимость
+                compatibility, description = await self._calculate_compatibility(
+                    current_test, other_test
+                )
+                
+                # Импортируем маппинг
+                try:
+                    from src.dating_bot.services.data_mappers import map_gender_to_ui, map_goal_to_ui
+                    gender_display = map_gender_to_ui(user.sex)
+                    goal_display = map_goal_to_ui(user.goal)
+                except ImportError:
+                    # Fallback если маппинг не найден
+                    gender_display = "Женщина 👩" if user.sex == "female" else "Мужчина 🧑" if user.sex == "male" else "Не указано"
+                    goal_display = "💘 Отношения" if user.goal == "relationship" else "🫂 Дружба" if user.goal == "friendship" else "Не указано"
+                
                 profile = {
                     "id": user.id,
                     "name": user.name,
                     "age": user.age,
                     "city": user.city,
                     "photo_id": user.photo_id,
-                    "gender": self._map_gender_to_ui(user.sex),
-                    "goal": self._map_goal_to_ui(user.goal),
+                    "gender": gender_display,
+                    "goal": goal_display,
                     "compatibility": compatibility,
-                    "compatibility_description": description
+                    "compatibility_description": description,
+                    "telegram_id": user.telegram_id,
+                    "username": user.username
                 }
-
                 recommendations.append(profile)
-
+            
+            # 8. Сортируем по совместимости
             recommendations.sort(key=lambda x: x["compatibility"], reverse=True)
-            return recommendations[:limit]
+            final_recommendations = recommendations[:limit]            
+            return final_recommendations
 
-    async def _get_random_profiles(self, current_user_id: int, limit: int, session) -> List[Dict]:
-        user_repo = UserRepository(session)
-        all_users = await user_repo.get_all_active_users()
 
-        random_profiles = []
-        for user in all_users:
-            if user.id == current_user_id:
-                continue
+    async def _calculate_compatibility(self, current_test, other_test):
+        """Рассчитать совместимость между двумя тестами"""
+        if current_test and current_test.is_completed and other_test and other_test.is_completed:
+            compatibility = self.compatibility_calculator.calculate_compatibility(
+                current_test.answers,
+                other_test.answers
+            )
+            description = self.compatibility_calculator.get_compatibility_description(compatibility)
+        else:
+            # Если нет тестов, генерируем случайную совместимость
+            compatibility = round(random.uniform(50, 95), 1)
+            description = "Предварительная оценка"
+        
+        return compatibility, description
 
-            profile = {
-                "id": user.id,
-                "name": user.name,
-                "age": user.age,
-                "city": user.city,
-                "photo_id": user.photo_id,
-                "gender": self._map_gender_to_ui(user.sex),
-                "goal": self._map_goal_to_ui(user.goal),
-                "compatibility": round(random.uniform(50, 95), 1),
-                "compatibility_description": "Предварительная оценка"
-            }
-            random_profiles.append(profile)
+    def _build_filters(
+        self,
+        current_user,
+        gender_filter: Optional[str] = None,
+        goal_filter: Optional[str] = None,
+        age_min: Optional[int] = None,
+        age_max: Optional[int] = None,
+        city_filter: Optional[str] = None
+        ) -> Dict[str, Any]:
+        """Построить словарь фильтров"""
+        filters = {}
+        
+        # Фильтр по полу
+        if gender_filter:
+            filters['search_sex'] = gender_filter
+        elif current_user.search_sex:
+            filters['search_sex'] = current_user.search_sex
+        else:
+            filters['search_sex'] = 'any'
+        
+        # Фильтр по цели
+        if goal_filter:
+            filters['goal_filter'] = goal_filter
+        elif current_user.goal:
+            filters['goal_filter'] = current_user.goal
+        else:
+            filters['goal_filter'] = None
+        
+        return filters
 
-        random.shuffle(random_profiles)
-        return random_profiles[:limit]
-
-    def _check_basic_compatibility(self, user1, user2) -> bool:
-        """Проверить базовую совместимость (пол, возраст, цель)"""
-        if user1.search_sex and user1.search_sex != "any":
-            if user1.search_sex != user2.sex:
+    def _check_basic_compatibility(
+        self, 
+        current_user, 
+        other_user, 
+        filters: Dict[str, Any]
+    ) -> bool:
+        """
+        Проверить базовую совместимость по фильтрам
+        
+        Логика:
+        1. Текущий пользователь должен подходить под фильтры другого пользователя
+        2. Другой пользователь должен подходить под фильтры текущего
+        3. Учитываем цель (отношения/дружба)
+        """
+        
+        # 1. Проверяем, что другой пользователь подходит под фильтры текущего
+        # Фильтр по полу (кого ищет текущий пользователь)
+        search_sex = filters.get('search_sex')
+        if search_sex and search_sex != 'any':
+            if not other_user.sex or other_user.sex != search_sex:
                 return False
-
-        if user2.search_sex and user2.search_sex != "any":
-            if user2.search_sex != user1.sex:
+        
+        # Фильтр по цели (если указан)
+        goal_filter = filters.get('goal_filter')
+        if goal_filter and goal_filter != 'any':
+            if not other_user.goal or other_user.goal != goal_filter:
+                # Для дружбы цель может быть любой
+                if goal_filter != 'friendship':
+                    return False
+        
+        # 2. Проверяем, что текущий пользователь подходит под фильтры другого
+        # Проверка по полу (кого ищет другой пользователь)
+        if other_user.search_sex and other_user.search_sex != 'any':
+            if not current_user.sex or current_user.sex != other_user.search_sex:
                 return False
-
-        if user1.min_age and user2.age and user2.age < user1.min_age:
-            return False
-        if user1.max_age and user2.age and user2.age > user1.max_age:
-            return False
-
-        if user2.min_age and user1.age and user1.age < user2.min_age:
-            return False
-        if user2.max_age and user1.age and user1.age > user2.max_age:
-            return
-
-        if user1.goal and user2.goal and user1.goal != user2.goal:
-            pass
-
+        
+        # Проверка по цели другого пользователя
+        if other_user.goal and other_user.goal != 'any':
+            if not current_user.goal or current_user.goal != other_user.goal:
+                # Для дружбы цель может быть любой
+                if other_user.goal != 'friendship':
+                    return False
+        
+        # 3. Специальная логика для разных комбинаций целей
+        if current_user.goal and other_user.goal:
+            current_goal = current_user.goal
+            other_goal = other_user.goal
+            
+            # Комбинации целей:
+            # - отношения + отношения = ✓ (если пол подходит)
+            # - дружба + дружба = ✓ (любой пол)
+            # - отношения + дружба = ✗ (если отношения требуют взаимности)
+            # - дружба + отношения = ✗ (если отношения требуют взаимности)
+            
+            if current_goal == 'relationship' and other_goal == 'friendship':
+                # Текущий ищет отношения, другой - дружбу
+                # Это несовместимо, если текущий не согласен на дружбу
+                return False
+                
+            elif current_goal == 'friendship' and other_goal == 'relationship':
+                # Текущий ищет дружбу, другой - отношения
+                # Это несовместимо, если другой не согласен на дружбу
+                return False
+        
+        
         return True
 
-    def _map_gender_to_ui(self, gender_db: str) -> str:
-        if gender_db == "female":
-            return "Женщина 👩"
-        elif gender_db == "male":
-            return "Мужчина 🧑"
-        return gender_db or "Не указано"
-
-    def _map_goal_to_ui(self, goal_db: str) -> str:
-        if goal_db == "relationship":
-            return "💘 Отношения"
-        elif goal_db == "friendship":
-            return "🫂 Дружба"
-        return goal_db or "Не указано"
 
     async def like_profile(self, user_telegram_id: int, profile_db_id: int) -> Dict:
         print(f"\n=== LIKE_PROFILE ВЫЗВАН ===")

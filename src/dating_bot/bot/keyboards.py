@@ -132,7 +132,7 @@ def main_menu_kb() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="🗑️ Удалить анкету")]
         ],
         resize_keyboard=True,
-        one_time_keyboard=True
+        one_time_keyboard=False
     )
 
 def browse_or_menu_kb() -> ReplyKeyboardMarkup:
