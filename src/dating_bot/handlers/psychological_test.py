@@ -6,11 +6,11 @@ from aiogram.fsm.context import FSMContext
 from datetime import datetime
 from src.dating_bot.bot.states import PsychologicalTest
 from src.dating_bot.bot.keyboards import (
-    test_answer_kb, 
+    test_answer_kb,
     start_test_kb,
-    test_results_kb,
     confirm_retake_kb,
-    main_menu_kb
+    test_results_kb,
+    main_menu_kb,
 )
 from src.dating_bot.data.test_questions import PSYCHOLOGICAL_TEST_QUESTIONS
 from src.dating_bot.services.test_calculator import (

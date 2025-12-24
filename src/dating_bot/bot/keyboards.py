@@ -8,7 +8,10 @@ def agree_kb() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="не сейчас")],
         ],
         resize_keyboard=True,
-        one_time_keyboard=True)
+        one_time_keyboard=True,
+    )
+
+
 def gender_kb() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
@@ -128,7 +131,7 @@ def main_menu_kb() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="🧠 Пройти тест")],
             [KeyboardButton(text="✏️ Редактировать профиль"), KeyboardButton(text="👤 Мой профиль")],
             [KeyboardButton(text="💞 Мои мэтчи")],
-            [KeyboardButton(text="👀 Смотреть анкеты")], 
+            [KeyboardButton(text="👀 Смотреть анкеты")],
             [KeyboardButton(text="🗑️ Удалить анкету")]
         ],
         resize_keyboard=True,
@@ -182,11 +185,11 @@ def speed_dating_question_kb() -> ReplyKeyboardMarkup:
         one_time_keyboard=False
     )
 
-def confirmation_kb():
+def confirmation_kb() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="✅ Да, удалить всё")],
-            [KeyboardButton(text="❌ Нет, отменить")]
+            [KeyboardButton(text="❌ Нет, отменить")],
         ],
         resize_keyboard=True,
         one_time_keyboard=True

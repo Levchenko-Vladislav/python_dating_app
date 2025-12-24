@@ -1,9 +1,6 @@
 from aiogram import Router, F, Bot
-from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
-from aiogram.filters import StateFilter
-import asyncio
+from aiogram.types import Message, ReplyKeyboardRemove
 from typing import Optional
-import logging
 from src.dating_bot.bot.states import SpeedDatingState
 from src.dating_bot.bot.keyboards import (
     speed_dating_start_kb,
@@ -17,14 +14,11 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 
 router = Router()
-logger = logging.getLogger(__name__)
-
-STOP_TEXT = "Не продолжать общение 💔"
 STOP_PREFIX = "Не продолжать общение"
+
+
 @router.message(F.text.contains(STOP_PREFIX))
 async def cancel_speed_dating(message: Message, state: FSMContext, bot: Bot):
-    logger.error("STOP HANDLER SELECTED!!! text=%r", message.text)
-
     profile = await UserService.get_user_profile(str(message.from_user.id))
     if not profile or not profile.get("user"):
         await message.answer("Главное меню 👇", reply_markup=main_menu_kb())
@@ -39,19 +33,13 @@ async def cancel_speed_dating(message: Message, state: FSMContext, bot: Bot):
         await message.answer("Главное меню 👇", reply_markup=main_menu_kb())
         await state.clear()
         return
-
-    # ✅ правильные данные
     session_id = join["session"]["id"]
     u1 = join["users"]["user1"]
     u2 = join["users"]["user2"]
 
     partner = u2 if u1["id"] == me.id else u1
     partner_telegram_id = int(partner["telegram_id"])
-
-    # ✅ ОДИН раз
     await SpeedDatingService.cancel_session_and_remove_match(session_id)
-
-    # уведомляем партнёра
     try:
         await bot.send_message(
             chat_id=partner_telegram_id,
@@ -71,8 +59,8 @@ async def cancel_speed_dating(message: Message, state: FSMContext, bot: Bot):
             )
         )
         await partner_state.clear()
-    except Exception as e:
-        logger.exception(e)
+    except Exception:
+        pass
 
     await message.answer("💔 Общение завершено.", reply_markup=ReplyKeyboardRemove())
     await message.answer("Главное меню 👇", reply_markup=main_menu_kb())
@@ -93,7 +81,7 @@ async def show_matches_with_speed_dating(message: Message, state: FSMContext):
         await message.answer("Ошибка: пользователь не найден")
         return
     matches = await LikeService.get_user_matches(message.from_user.id)
-    
+
     if not matches:
         await message.answer(
             "😔 У тебя пока нет взаимных симпатий.\n"
@@ -104,9 +92,9 @@ async def show_matches_with_speed_dating(message: Message, state: FSMContext):
 
     filtered_matches = []
     for match in matches:
-        if match['user']['id'] != user_db_id:  # Пропускаем себя
+        if match['user']['id'] != user_db_id:
             filtered_matches.append(match)
-    
+
     if not filtered_matches:
         await message.answer(
             "😔 Нет доступных мэтчей для спиддейтинга.",
@@ -116,18 +104,18 @@ async def show_matches_with_speed_dating(message: Message, state: FSMContext):
 
     header = f"💞 <b>Твои взаимные симпатии ({len(filtered_matches)})</b>\n\n"
     header += "Вот люди, которые тоже заинтересовались тобой:\n\n"
-    
+
     await message.answer(header, parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
 
     for i, match in enumerate(filtered_matches[:5], 1):
         user = match['user']
-        
+
         match_text = (
-            f"<b>{i}.</b> 👤 <b>{user['name']}</b>, {user['age']} лет\n" 
+            f"<b>{i}.</b> 👤 <b>{user['name']}</b>, {user['age']} лет\n"
             f"📍 {user['city']}\n"
             f"💘 Совпали: {match['matched_at'].strftime('%d.%m.%Y')}"
         )
-        
+
         if user.get('photo_id'):
             try:
                 await message.answer_photo(
@@ -135,8 +123,8 @@ async def show_matches_with_speed_dating(message: Message, state: FSMContext):
                     caption=match_text,
                     parse_mode="HTML"
                 )
-            except Exception as e:
-                print(f"Ошибка отправки фото: {e}")
+            except Exception:
+                pass
                 await message.answer(match_text, parse_mode="HTML")
         else:
             await message.answer(match_text, parse_mode="HTML")
@@ -146,7 +134,7 @@ async def show_matches_with_speed_dating(message: Message, state: FSMContext):
         "Введите номер мэтча (1, 2, 3...):",
         reply_markup=ReplyKeyboardRemove()
     )
-    
+
     await state.update_data(matches=filtered_matches)
     await state.set_state(SpeedDatingState.waiting_start)
 
@@ -155,12 +143,12 @@ async def select_match_for_speed_dating(message: Message, state: FSMContext):
 
     data = await state.get_data()
     matches = data.get('matches', [])
-    
+
     try:
         match_num = int(message.text) - 1
         if 0 <= match_num < len(matches):
             selected_match = matches[match_num]
-            
+
 
             await state.update_data(selected_match=selected_match)
             partner_name = selected_match['user']['name']
@@ -173,7 +161,7 @@ async def select_match_for_speed_dating(message: Message, state: FSMContext):
                 reply_markup=speed_dating_start_kb()
             )
 
-            await state.set_state(SpeedDatingState.waiting_confirmation)  
+            await state.set_state(SpeedDatingState.waiting_confirmation)
         else:
             await message.answer(
                 f"Пожалуйста, введите число от 1 до {len(matches)}"
@@ -196,7 +184,6 @@ async def start_or_join_speed_dating(
         await message.answer("Ошибка: пользователь не найден")
         return
 
-    # стартуем новую сессию или присоединяемся к активной
     if selected_match:
         result = await SpeedDatingService.start_speed_dating(selected_match["match_id"])
     else:
@@ -213,10 +200,8 @@ async def start_or_join_speed_dating(
     session = result["session"]
     users = result["users"]
 
-    # ✅ нормализуем session_id для двух форматов (ORM или dict)
     session_id = session["id"] if isinstance(session, dict) else session.id
 
-    # определяем кто мы в users
     if user_db_id == users["user1"]["id"]:
         current_user = users["user1"]
         other_user = users["user2"]
@@ -224,7 +209,6 @@ async def start_or_join_speed_dating(
         current_user = users["user2"]
         other_user = users["user1"]
 
-    # сохраняем данные себе
     await state.update_data(
         session_id=session_id,
         partner_id=other_user["id"],
@@ -236,7 +220,6 @@ async def start_or_join_speed_dating(
         current_user_id=user_db_id
     )
 
-    # получаем первый вопрос
     current_question = await SpeedDatingService.get_current_question(session_id)
     if not current_question.get("success"):
         await message.answer("Ошибка: не удалось получить вопрос", reply_markup=main_menu_kb())
@@ -250,11 +233,9 @@ async def start_or_join_speed_dating(
         f"✍️ <b>Я покажу ответы, когда ответят двое!</b>"
     )
 
-    # отправляем себе
     await message.answer(text, parse_mode="HTML", reply_markup=speed_dating_question_kb())
     await state.set_state(SpeedDatingState.waiting_answer)
 
-    # отправляем партнеру и ставим ему состояние/данные
     partner_telegram_id = int(other_user["telegram_id"])
     partner_state = FSMContext(
         storage=state.storage,
@@ -297,7 +278,6 @@ async def postpone_speed_dating(message: Message, state: FSMContext):
     ~F.text.contains(STOP_PREFIX)
 )
 async def submit_answer_immediately(message: Message, state: FSMContext, bot: Bot):
-    logger.error("ANSWER HANDLER SELECTED!!! text=%r", message.text)
     data = await state.get_data()
     session_id = data.get("session_id")
     if not session_id:

@@ -1,16 +1,9 @@
-import logging
-from typing import Optional, Dict, Any, List
-from datetime import datetime
-import random
-
+from typing import Dict, Any
 from src.dating_bot.database.session import AsyncSessionLocal
 from src.dating_bot.database.repositories.speed_dating_repository import SpeedDatingRepository
 from src.dating_bot.database.repositories.match_repository import MatchRepository
 from src.dating_bot.database.repositories.user_repository import UserRepository
 from src.dating_bot.data.speed_dating_questions import get_random_questions
-
-logger = logging.getLogger(__name__)
-
 
 class SpeedDatingService:
     
@@ -215,9 +208,6 @@ class SpeedDatingService:
                               "username": user2.username},
                 },
             }
-
-
-
 
     @staticmethod
     async def cancel_session_and_remove_match(session_id: int) -> Dict[str, Any]:
