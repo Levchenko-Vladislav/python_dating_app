@@ -202,23 +202,36 @@ class SpeedDatingService:
 
             user1 = await user_repo.get_user_by_id(match.user1_id)
             user2 = await user_repo.get_user_by_id(match.user2_id)
+            return {
+                "success": True,
+                "session": {
+                    "id": session_obj.id,
+                    "match_id": session_obj.match_id,
+                    "user1_id": session_obj.user1_id,
+                    "user2_id": session_obj.user2_id,
+                },
+                "users": {
+                    "user1": {"id": user1.id, "telegram_id": user1.telegram_id, "name": user1.name,
+                              "username": user1.username},
+                    "user2": {"id": user2.id, "telegram_id": user2.telegram_id, "name": user2.name,
+                              "username": user2.username},
+                },
+            }
 
-        return {
-            "success": True,
-            "session": session_obj,
-            "users": {
-                "user1": {
-                    "id": user1.id,
-                    "telegram_id": user1.telegram_id,
-                    "name": user1.name,
-                    "username": user1.username,
-                },
-                "user2": {
-                    "id": user2.id,
-                    "telegram_id": user2.telegram_id,
-                    "name": user2.name,
-                    "username": user2.username,
-                },
-            },
-        }
+
+
+
+    @staticmethod
+    async def cancel_session_and_remove_match(session_id: int) -> Dict[str, Any]:
+        async with AsyncSessionLocal() as session:
+            speed_dating_repo = SpeedDatingRepository(session)
+
+            session_obj = await speed_dating_repo.get_session_by_id(session_id)
+            if not session_obj:
+                return {"success": False, "message": "Сессия не найдена"}
+
+            ok = await speed_dating_repo.cancel_session(session_id)
+            if not ok:
+                return {"success": False, "message": "Не удалось отменить сессию"}
+            return {"success": True}
 

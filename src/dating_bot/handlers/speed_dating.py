@@ -6,8 +6,7 @@ from typing import Optional
 import logging
 from src.dating_bot.bot.states import SpeedDatingState
 from src.dating_bot.bot.keyboards import (
-    speed_dating_start_kb, 
-    speed_dating_session_kb,
+    speed_dating_start_kb,
     speed_dating_question_kb,
     main_menu_kb
 )
@@ -20,9 +19,67 @@ from aiogram.fsm.storage.base import StorageKey
 router = Router()
 logger = logging.getLogger(__name__)
 
+STOP_TEXT = "Не продолжать общение 💔"
+STOP_PREFIX = "Не продолжать общение"
+@router.message(F.text.contains(STOP_PREFIX))
+async def cancel_speed_dating(message: Message, state: FSMContext, bot: Bot):
+    logger.error("STOP HANDLER SELECTED!!! text=%r", message.text)
+
+    profile = await UserService.get_user_profile(str(message.from_user.id))
+    if not profile or not profile.get("user"):
+        await message.answer("Главное меню 👇", reply_markup=main_menu_kb())
+        await state.clear()
+        return
+
+    me = profile["user"]
+    initiator_name = me.name
+
+    join = await SpeedDatingService.join_active_session(me.id)
+    if not join.get("success"):
+        await message.answer("Главное меню 👇", reply_markup=main_menu_kb())
+        await state.clear()
+        return
+
+    # ✅ правильные данные
+    session_id = join["session"]["id"]
+    u1 = join["users"]["user1"]
+    u2 = join["users"]["user2"]
+
+    partner = u2 if u1["id"] == me.id else u1
+    partner_telegram_id = int(partner["telegram_id"])
+
+    # ✅ ОДИН раз
+    await SpeedDatingService.cancel_session_and_remove_match(session_id)
+
+    # уведомляем партнёра
+    try:
+        await bot.send_message(
+            chat_id=partner_telegram_id,
+            text=(
+                f"💔 Speed Dating прекращён по инициативе {initiator_name}.\n"
+                f"Вы возвращены в главное меню 👇"
+            ),
+            reply_markup=main_menu_kb()
+        )
+
+        partner_state = FSMContext(
+            storage=state.storage,
+            key=StorageKey(
+                bot_id=bot.id,
+                chat_id=partner_telegram_id,
+                user_id=partner_telegram_id
+            )
+        )
+        await partner_state.clear()
+    except Exception as e:
+        logger.exception(e)
+
+    await message.answer("💔 Общение завершено.", reply_markup=ReplyKeyboardRemove())
+    await message.answer("Главное меню 👇", reply_markup=main_menu_kb())
+    await state.clear()
+
 
 async def get_user_db_id(telegram_id: int) -> Optional[int]:
-    """Получить ID пользователя в БД по telegram_id"""
     profile = await UserService.get_user_profile(str(telegram_id))
     if profile and profile.get('user'):
         return profile['user'].id
@@ -31,7 +88,6 @@ async def get_user_db_id(telegram_id: int) -> Optional[int]:
 
 @router.message(F.text == "💞 Мои мэтчи")
 async def show_matches_with_speed_dating(message: Message, state: FSMContext):
-    """Показать мэтчи с возможностью начать спиддейтинг"""
     user_db_id = await get_user_db_id(message.from_user.id)
     if not user_db_id:
         await message.answer("Ошибка: пользователь не найден")
@@ -48,7 +104,6 @@ async def show_matches_with_speed_dating(message: Message, state: FSMContext):
 
     filtered_matches = []
     for match in matches:
-        # match['user'] - это другой пользователь в мэтче
         if match['user']['id'] != user_db_id:  # Пропускаем себя
             filtered_matches.append(match)
     
@@ -70,7 +125,6 @@ async def show_matches_with_speed_dating(message: Message, state: FSMContext):
         match_text = (
             f"<b>{i}.</b> 👤 <b>{user['name']}</b>, {user['age']} лет\n"  # ← Добавили номер
             f"📍 {user['city']}\n"
-            f"💬 {user['username'] if user['username'] else 'Без username'}\n"
             f"💘 Совпали: {match['matched_at'].strftime('%d.%m.%Y')}"
         )
         
@@ -143,10 +197,9 @@ async def start_or_join_speed_dating(
         await message.answer("Ошибка: пользователь не найден")
         return
 
+    # стартуем новую сессию или присоединяемся к активной
     if selected_match:
-        result = await SpeedDatingService.start_speed_dating(
-            selected_match["match_id"]
-        )
+        result = await SpeedDatingService.start_speed_dating(selected_match["match_id"])
     else:
         result = await SpeedDatingService.join_active_session(user_db_id)
 
@@ -161,6 +214,10 @@ async def start_or_join_speed_dating(
     session = result["session"]
     users = result["users"]
 
+    # ✅ нормализуем session_id для двух форматов (ORM или dict)
+    session_id = session["id"] if isinstance(session, dict) else session.id
+
+    # определяем кто мы в users
     if user_db_id == users["user1"]["id"]:
         current_user = users["user1"]
         other_user = users["user2"]
@@ -168,19 +225,20 @@ async def start_or_join_speed_dating(
         current_user = users["user2"]
         other_user = users["user1"]
 
+    # сохраняем данные себе
     await state.update_data(
-            session_id=session.id,
-            partner_id=other_user["id"],
-            partner_telegram_id=other_user["telegram_id"],
-            partner_name=other_user["name"],
-            partner_username=other_user.get("username"),
-            my_username=message.from_user.username,
-            current_user_name=current_user["name"],
-            current_user_id=user_db_id
-        )
+        session_id=session_id,
+        partner_id=other_user["id"],
+        partner_telegram_id=other_user["telegram_id"],
+        partner_name=other_user["name"],
+        partner_username=other_user.get("username"),
+        my_username=message.from_user.username,
+        current_user_name=current_user["name"],
+        current_user_id=user_db_id
+    )
 
-
-    current_question = await SpeedDatingService.get_current_question(session.id)
+    # получаем первый вопрос
+    current_question = await SpeedDatingService.get_current_question(session_id)
     if not current_question.get("success"):
         await message.answer("Ошибка: не удалось получить вопрос", reply_markup=main_menu_kb())
         await state.clear()
@@ -193,19 +251,23 @@ async def start_or_join_speed_dating(
         f"✍️ <b>Я покажу ответы, когда ответят двое!</b>"
     )
 
+    # отправляем себе
     await message.answer(text, parse_mode="HTML", reply_markup=speed_dating_question_kb())
     await state.set_state(SpeedDatingState.waiting_answer)
-    partner_telegram_id = other_user["telegram_id"]
+
+    # отправляем партнеру и ставим ему состояние/данные
+    partner_telegram_id = int(other_user["telegram_id"])
     partner_state = FSMContext(
         storage=state.storage,
         key=StorageKey(
             bot_id=bot.id,
-            chat_id=int(partner_telegram_id),
-            user_id=int(partner_telegram_id)
+            chat_id=partner_telegram_id,
+            user_id=partner_telegram_id
         )
     )
+
     await partner_state.update_data(
-        session_id=session.id,
+        session_id=session_id,
         partner_id=user_db_id,
         partner_telegram_id=message.from_user.id,
         partner_name=current_user["name"],
@@ -213,12 +275,16 @@ async def start_or_join_speed_dating(
         current_user_id=other_user["id"],
     )
 
-    await bot.send_message(int(partner_telegram_id), text, parse_mode="HTML", reply_markup=speed_dating_question_kb())
+    await bot.send_message(
+        partner_telegram_id,
+        text,
+        parse_mode="HTML",
+        reply_markup=speed_dating_question_kb()
+    )
     await partner_state.set_state(SpeedDatingState.waiting_answer)
 
 @router.message(SpeedDatingState.waiting_start, F.text == "⏳ Позже")
 async def postpone_speed_dating(message: Message, state: FSMContext):
-    """Отложить спиддейтинг"""
     await message.answer(
         "Хорошо, Speed Dating можно начать позже из раздела 'Мои мэтчи' 💞",
         reply_markup=main_menu_kb()
@@ -226,28 +292,15 @@ async def postpone_speed_dating(message: Message, state: FSMContext):
     await state.clear()
 
 
-@router.message(SpeedDatingState.waiting_answer, F.text == "📝 Написать ответ")
-async def prompt_for_answer(message: Message, state: FSMContext):
-    """Пользователь хочет написать ответ"""
-    await message.answer(
-        "Напишите свой ответ в чат, затем нажмите '📤 Отправить ответ'",
-        reply_markup=speed_dating_session_kb(show_send_button=True)
-    )
-
-
-@router.message(SpeedDatingState.waiting_answer, F.text == "📤 Отправить ответ")
-async def submit_answer_handler(message: Message, state: FSMContext, bot: Bot):
+@router.message(
+    SpeedDatingState.waiting_answer,
+    F.text,
+    ~F.text.contains(STOP_PREFIX)
+)
+async def submit_answer_immediately(message: Message, state: FSMContext, bot: Bot):
+    logger.error("ANSWER HANDLER SELECTED!!! text=%r", message.text)
     data = await state.get_data()
     session_id = data.get("session_id")
-    user_answer = data.get("current_answer")
-
-    if not user_answer:
-        await message.answer(
-            "Сначала напишите ответ в чат, затем нажмите '📤 Отправить ответ'",
-            reply_markup=speed_dating_session_kb(show_send_button=True)
-        )
-        return
-
     if not session_id:
         await message.answer("Сессия не найдена", reply_markup=main_menu_kb())
         await state.clear()
@@ -256,6 +309,14 @@ async def submit_answer_handler(message: Message, state: FSMContext, bot: Bot):
     user_db_id = await get_user_db_id(message.from_user.id)
     if not user_db_id:
         await message.answer("Ошибка: пользователь не найден")
+        return
+    active = await SpeedDatingService.join_active_session(user_db_id)
+    if (not active.get("success")) or (active["session"]["id"] != session_id):
+        await message.answer("💔 Speed Dating уже завершён. Главное меню 👇", reply_markup=main_menu_kb())
+        await state.clear()
+        return
+    user_answer = message.text.strip()
+    if not user_answer:
         return
 
     result = await SpeedDatingService.submit_answer(session_id, user_db_id, user_answer)
@@ -268,38 +329,32 @@ async def submit_answer_handler(message: Message, state: FSMContext, bot: Bot):
         await state.clear()
         return
 
-    await state.update_data(current_answer=None)
-
     question_completed = result.get("question_completed")
     q_idx = result.get("completed_question_index")
 
     if not question_completed:
         await message.answer(
-            "✅ Ответ сохранён! Ждём, пока партнёр тоже ответит…",
-            reply_markup=speed_dating_session_kb()
+            "✅ Ответ отправлен! Ждём, пока партнёр тоже ответит…",
+            reply_markup=speed_dating_question_kb()
         )
         await state.set_state(SpeedDatingState.partner_waiting)
         return
 
-    data = await state.get_data()
     partner_telegram_id = data.get("partner_telegram_id")
-    partner_id = data.get("partner_id")
 
     info = await SpeedDatingService.get_session_info(session_id)
     if info.get("success") and q_idx is not None and partner_telegram_id:
         session_obj = info["session"]
-
-        answers_pair = (session_obj.answers or {}).get(str(q_idx), {})
         real_partner_id = session_obj.user2_id if session_obj.user1_id == user_db_id else session_obj.user1_id
 
-        my_text = answers_pair.get(str(user_db_id))
-        partner_text = answers_pair.get(str(real_partner_id))
+        answers_all = session_obj.answers or {}
+        answers_pair = answers_all.get(str(q_idx)) or answers_all.get(q_idx) or {}
+
+        my_text = answers_pair.get(str(user_db_id)) or answers_pair.get(user_db_id)
+        partner_text = answers_pair.get(str(real_partner_id)) or answers_pair.get(real_partner_id)
 
         if partner_text:
-            await message.answer(
-                f"💬 Ответ партнёра:\n<i>{partner_text}</i>",
-                parse_mode="HTML"
-            )
+            await message.answer(f"💬 Ответ партнёра:\n<i>{partner_text}</i>", parse_mode="HTML")
 
         if my_text:
             await bot.send_message(
@@ -307,6 +362,7 @@ async def submit_answer_handler(message: Message, state: FSMContext, bot: Bot):
                 text=f"💬 Ответ партнёра:\n<i>{my_text}</i>",
                 parse_mode="HTML"
             )
+
     if result.get("is_completed"):
         info = await SpeedDatingService.get_session_info(session_id)
         if info.get("success"):
@@ -326,19 +382,15 @@ async def submit_answer_handler(message: Message, state: FSMContext, bot: Bot):
             text_me = (
                 "🎉 <b>Speed Dating завершён!</b>\n\n"
                 f"✨ Ваш собеседник: {partner_tag}\n\n"
-                "Теперь вы можете задавать друг другу любые вопросы и продолжать общение 💬\n"
-                "Приятного вам общения! Надеюсь, у вас всё сложится 🤍"
+                "Теперь вы можете продолжать общение 💬"
             )
-
             text_partner = (
                 "🎉 <b>Speed Dating завершён!</b>\n\n"
                 f"✨ Ваш собеседник: {my_tag}\n\n"
-                "Теперь вы можете задавать друг другу любые вопросы и продолжать общение 💬\n"
-                "Приятного вам общения! Надеюсь, у вас всё сложится 🤍"
+                "Теперь вы можете продолжать общение 💬"
             )
 
             await message.answer(text_me, parse_mode="HTML", reply_markup=main_menu_kb())
-
             if partner_telegram_id:
                 await bot.send_message(
                     chat_id=int(partner_telegram_id),
@@ -351,14 +403,18 @@ async def submit_answer_handler(message: Message, state: FSMContext, bot: Bot):
         return
 
     next_question = await SpeedDatingService.get_current_question(session_id)
+    if not next_question.get("success"):
+        await message.answer("Speed Dating завершён или вопросы закончились.", reply_markup=main_menu_kb())
+        await state.clear()
+        return
 
     next_text = (
         f"💬 <b>Вопрос {next_question['question_number']} из {next_question['total_questions']}:</b>\n"
         f"<i>{next_question['question']}</i>\n\n"
-        f"✍️ <b>Ответьте оба. Я покажу ответы, когда ответят двое.</b>"
+        f"✍️ <b>Просто напишите ответ сообщением.</b>"
     )
 
-    await message.answer(next_text, parse_mode="HTML", reply_markup=speed_dating_question_kb())
+    await message.answer(next_text, parse_mode="HTML", reply_markup= speed_dating_question_kb())
     await state.set_state(SpeedDatingState.waiting_answer)
 
     if partner_telegram_id:
@@ -378,63 +434,13 @@ async def submit_answer_handler(message: Message, state: FSMContext, bot: Bot):
             )
         )
         await partner_state.set_state(SpeedDatingState.waiting_answer)
-        await partner_state.update_data(current_answer=None)
-
-
 
 @router.message(
-    SpeedDatingState.waiting_answer,
-    F.text,
-    ~F.text.in_(["📝 Написать ответ", "📤 Отправить ответ", "⏹ Приостановить знакомство"])
+    SpeedDatingState.partner_waiting,
+    ~F.text.contains(STOP_PREFIX)
 )
-async def save_answer_text(message: Message, state: FSMContext):
-    await state.update_data(current_answer=message.text)
-    await message.answer(
-        f"✅ Ответ сохранен!\n\n"
-        f"Ваш ответ: <i>{message.text}</i>\n\n"
-        f"Нажмите '📤 Отправить ответ' чтобы отправить его партнеру.",
-        parse_mode="HTML",
-        reply_markup=speed_dating_session_kb(show_send_button=True)
-    )
-
-
-@router.message(
-    StateFilter(SpeedDatingState.waiting_answer, SpeedDatingState.partner_waiting, SpeedDatingState.in_session),
-    F.text == "⏹ Приостановить знакомство"
-)
-async def cancel_speed_dating(message: Message, state: FSMContext, bot: Bot):
-    """Приостановить знакомство"""
-    data = await state.get_data()
-    session_id = data.get('session_id')
-    partner_telegram_id = data.get('partner_telegram_id')
-    partner_name = data.get('partner_name')
-    
-    if session_id:
-        await SpeedDatingService.cancel_session(session_id)
-
-        if partner_telegram_id:
-            try:
-                await bot.send_message(
-                    chat_id=int(partner_telegram_id),
-                    text=f"❌ {message.from_user.first_name} приостановил(а) знакомство.\n"
-                         "Speed Dating завершен.",
-                    reply_markup=main_menu_kb()
-                )
-            except Exception as e:
-                print(f"Ошибка уведомления партнера: {e}")
-    
-    await message.answer(
-        "❌ Знакомство приостановлено.\n"
-        "Вы вернулись в главное меню.",
-        reply_markup=main_menu_kb()
-    )
-    await state.clear()
-
-
-@router.message(SpeedDatingState.partner_waiting)
 async def partner_is_answering(message: Message, state: FSMContext):
-    if message.text != "⏹ Приостановить знакомство":
-        await message.answer(
-            "Пожалуйста, подождите, пока партнер ответит на вопрос.",
-            reply_markup=speed_dating_session_kb()
-        )
+    await message.answer(
+        "Пожалуйста, подождите, пока партнер ответит на вопрос.",
+        reply_markup=speed_dating_question_kb()
+    )

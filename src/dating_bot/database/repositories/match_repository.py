@@ -118,3 +118,12 @@ class MatchRepository:
         except Exception as e:
             logger.error(f"Ошибка получения мэтча по ID: {e}")
             return None
+
+    async def delete_match(self, match_id: int) -> bool:
+        match = await self.session.get(Match, match_id)
+        if not match:
+            return False
+
+        await self.session.delete(match)
+        await self.session.commit()
+        return True

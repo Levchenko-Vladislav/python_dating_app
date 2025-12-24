@@ -174,24 +174,10 @@ def speed_dating_start_kb() -> ReplyKeyboardMarkup:
         one_time_keyboard=True
     )
 
-def speed_dating_session_kb(show_send_button: bool = False) -> ReplyKeyboardMarkup:
-    keyboard = []
-    if show_send_button:
-        keyboard.append([KeyboardButton(text="📤 Отправить ответ")])
-    keyboard.append([KeyboardButton(text="⏹ Приостановить знакомство")])
-    
-    return ReplyKeyboardMarkup(
-        keyboard=keyboard,
-        resize_keyboard=True,
-        one_time_keyboard=False
-    )
 
 def speed_dating_question_kb() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📝 Написать ответ")],
-            [KeyboardButton(text="⏹ Приостановить знакомство")],
-        ],
+        keyboard=[[KeyboardButton(text="Не продолжать общение 💔")]],
         resize_keyboard=True,
         one_time_keyboard=False
     )

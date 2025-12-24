@@ -6,6 +6,8 @@ from typing import Optional, List, Dict, Any
 import logging
 from sqlalchemy.orm.attributes import flag_modified
 from src.dating_bot.database.models import SpeedDatingSession, Match
+from src.dating_bot.database.repositories.match_repository import MatchRepository
+
 
 logger = logging.getLogger(__name__)
 
