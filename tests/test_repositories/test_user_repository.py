@@ -103,18 +103,15 @@ class TestUserRepository:
             name="Тестовый",
             age=25
         )
-
-        result = await user_repository.delete_user(111222333)
-
+        assert created_user is not None
+        result = await user_repository.delete_user_completely("111222333") 
         assert result is True
-
-        user = await user_repository.get_user_by_telegram_id(111222333)
-        assert user is not None
-        assert user.is_active is False
+        user = await user_repository.get_user_by_telegram_id("111222333")
+        assert user is None  
 
     @pytest.mark.asyncio
     async def test_delete_user_not_found(self, user_repository):
-        result = await user_repository.delete_user(999999999)
+        result = await user_repository.delete_user_completely(999999999)
 
         assert result is False
 
