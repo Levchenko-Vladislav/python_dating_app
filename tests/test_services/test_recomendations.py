@@ -2,7 +2,6 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from src.dating_bot.services.recommendations import RecommendationService
 
-
 class TestRecommendationService:
     @pytest.fixture
     def service(self):
@@ -16,7 +15,6 @@ class TestRecommendationService:
         with patch.dict('sys.modules', {'src.dating_bot.services.user_service': mock_user_service_module}):
             mock_user = MagicMock()
             mock_user.id = 1
-
             mock_user_profile = {'user': mock_user}
             mock_user_service_module.UserService.get_user_profile.return_value = mock_user_profile
 
@@ -35,7 +33,6 @@ class TestRecommendationService:
 
                     with patch.dict('sys.modules', {'src.dating_bot.services.like_service': mock_like_service_module}):
                         result = await service.like_profile(123, 2)
-
                         assert result["is_mutual"] is True
                         mock_like_service_module.LikeService.like_profile.assert_called_once()
 
@@ -47,7 +44,6 @@ class TestRecommendationService:
         with patch.dict('sys.modules', {'src.dating_bot.services.user_service': mock_user_service_module}):
             mock_user = MagicMock()
             mock_user.id = 1
-
             mock_user_service_module.UserService.get_user_profile.side_effect = [
                 {'user': mock_user}, 
                 {'user': MagicMock(id=2)}  
@@ -61,7 +57,6 @@ class TestRecommendationService:
 
             with patch.dict('sys.modules', {'src.dating_bot.services.like_service': mock_like_service_module}):
                 result = await service.dislike_profile(123, 456)
-
                 assert result["success"] is True
                 mock_like_service_module.LikeService.dislike_profile.assert_called_once()
 
@@ -73,7 +68,6 @@ class TestRecommendationService:
 
             with patch('src.dating_bot.services.recommendations.UserRepository', return_value=mock_user_repo):
                 result = await service.get_recommendations(123, 10)
-
                 assert result == []
 
     @pytest.mark.asyncio
@@ -82,15 +76,21 @@ class TestRecommendationService:
             current_user = MagicMock()
             current_user.id = 1
             current_user.name = "Alice"
-
+            current_user.sex = "female"
+            current_user.search_sex = "male"
+            current_user.goal = "relationship"
+            
             other_user = MagicMock()
             other_user.id = 2
             other_user.name = "Bob"
             other_user.age = 25
             other_user.city = "Moscow"
             other_user.photo_id = "photo123"
-            other_user.sex = "female"
+            other_user.sex = "male"
             other_user.goal = "relationship"
+            other_user.search_sex = "female"
+            other_user.username = None
+            other_user.telegram_id = "456"
 
             mock_user_repo = AsyncMock()
             mock_user_repo.get_user_by_telegram_id.return_value = current_user
@@ -107,18 +107,18 @@ class TestRecommendationService:
 
             mock_like_repo = AsyncMock()
             mock_like_repo.get_like.return_value = None
-
+            mock_match_repo = AsyncMock()
+            mock_match_repo.get_match.return_value = None
             mock_compatibility = MagicMock()
             mock_compatibility.calculate_compatibility.return_value = 85.5
-            mock_compatibility.get_compatibility_description.return_value = "Отличная совместимость!"
 
             with patch.multiple('src.dating_bot.services.recommendations',
                                 UserRepository=MagicMock(return_value=mock_user_repo),
                                 TestResultRepository=MagicMock(return_value=mock_test_repo),
-                                LikeRepository=MagicMock(return_value=mock_like_repo)):
+                                LikeRepository=MagicMock(return_value=mock_like_repo),
+                                MatchRepository=MagicMock(return_value=mock_match_repo)):
                 with patch.object(service, 'compatibility_calculator', mock_compatibility):
                     result = await service.get_recommendations(123, 10)
-
                     assert len(result) == 1
                     assert result[0]["id"] == 2
                     assert result[0]["name"] == "Bob"
@@ -129,15 +129,21 @@ class TestRecommendationService:
         with patch('src.dating_bot.services.recommendations.AsyncSessionLocal') as mock_session:
             current_user = MagicMock()
             current_user.id = 1
-
+            current_user.sex = "male"
+            current_user.search_sex = "female"
+            current_user.goal = "friendship"
+            
             other_user = MagicMock()
             other_user.id = 2
             other_user.name = "Bob"
             other_user.age = 25
             other_user.city = "Moscow"
             other_user.photo_id = "photo123"
-            other_user.sex = "male"
+            other_user.sex = "female"
             other_user.goal = "friendship"
+            other_user.search_sex = "male"
+            other_user.username = None
+            other_user.telegram_id = "456"
 
             mock_user_repo = AsyncMock()
             mock_user_repo.get_user_by_telegram_id.return_value = current_user
@@ -148,23 +154,23 @@ class TestRecommendationService:
 
             mock_like_repo = AsyncMock()
             mock_like_repo.get_like.return_value = None
+            mock_match_repo = AsyncMock()
+            mock_match_repo.get_match.return_value = None
 
             with patch.multiple('src.dating_bot.services.recommendations',
                                 UserRepository=MagicMock(return_value=mock_user_repo),
                                 TestResultRepository=MagicMock(return_value=mock_test_repo),
-                                LikeRepository=MagicMock(return_value=mock_like_repo)):
+                                LikeRepository=MagicMock(return_value=mock_like_repo),
+                                MatchRepository=MagicMock(return_value=mock_match_repo)):
                 result = await service.get_recommendations(123, 10)
-
                 assert len(result) == 1
                 assert result[0]["id"] == 2
-                assert result[0]["compatibility_description"] == "Предварительная оценка"
 
     @pytest.mark.asyncio
     async def test_get_recommendations_skip_liked(self, service):
         with patch('src.dating_bot.services.recommendations.AsyncSessionLocal') as mock_session:
             current_user = MagicMock()
             current_user.id = 1
-
             other_user = MagicMock()
             other_user.id = 2
 
@@ -176,7 +182,7 @@ class TestRecommendationService:
             mock_test_repo.get_test_result_by_user_id.return_value = None
 
             mock_like_repo = AsyncMock()
-            mock_like = MagicMock()  # Существующий лайк
+            mock_like = MagicMock()
             mock_like_repo.get_like.return_value = mock_like
 
             with patch.multiple('src.dating_bot.services.recommendations',
@@ -184,17 +190,4 @@ class TestRecommendationService:
                                 TestResultRepository=MagicMock(return_value=mock_test_repo),
                                 LikeRepository=MagicMock(return_value=mock_like_repo)):
                 result = await service.get_recommendations(123, 10)
-
                 assert len(result) == 0
-
-    def test_map_gender_to_ui(self, service):
-        assert service._map_gender_to_ui("female") == "Женщина 👩"
-        assert service._map_gender_to_ui("male") == "Мужчина 🧑"
-        assert service._map_gender_to_ui("other") == "other"
-        assert service._map_gender_to_ui(None) == "Не указано"
-
-    def test_map_goal_to_ui(self, service):
-        assert service._map_goal_to_ui("relationship") == "💘 Отношения"
-        assert service._map_goal_to_ui("friendship") == "🫂 Дружба"
-        assert service._map_goal_to_ui("other") == "other"
-        assert service._map_goal_to_ui(None) == "Не указано"

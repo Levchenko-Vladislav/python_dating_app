@@ -141,20 +141,19 @@ class TestUserService:
 
     @pytest.mark.asyncio
     async def test_delete_user_profile_not_found(self):
-        from src.dating_bot.services import UserService
+        from src.dating_bot.services.user_service import delete_user_completely 
 
         with patch('src.dating_bot.services.user_service.AsyncSessionLocal') as mock_session_local:
             mock_session = AsyncMock()
             mock_session_local.return_value.__aenter__.return_value = mock_session
 
             mock_repo = AsyncMock()
-            mock_repo.delete_user.return_value = False  # Не найден
+            mock_repo.delete_user_completely.return_value = False  
 
             with patch('src.dating_bot.services.user_service.UserRepository', return_value=mock_repo):
-                result = await UserService.delete_user_profile(999999999)
+                result = await delete_user_completely("999999999")  
 
-        assert result["success"] is False
-        assert "Пользователь не найден" in result["message"]
+        assert result is False
 
     @pytest.mark.asyncio
     async def test_check_user_exists_true(self):

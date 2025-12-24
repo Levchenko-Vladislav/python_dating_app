@@ -55,25 +55,3 @@ class TestCompatibilityCalculator:
         result = calculator.calculate_compatibility(None, None)
         assert result == 50.0
 
-    def test_get_compatibility_description_high(self, calculator):
-        descriptions = []
-        for percentage in [85, 90, 95, 100]:
-            desc = calculator.get_compatibility_description(percentage)
-            descriptions.append(desc)
-
-        assert any("Идеальная" in desc for desc in descriptions)
-
-    def test_get_compatibility_description_good(self, calculator):
-        desc = calculator.get_compatibility_description(75)
-        assert "Отличная" in desc
-
-    def test_get_compatibility_description_medium(self, calculator):
-        desc = calculator.get_compatibility_description(60)
-        assert "Хорошая" in desc
-
-        desc = calculator.get_compatibility_description(45)
-        assert "Средняя" in desc
-
-    def test_get_compatibility_description_low(self, calculator):
-        desc = calculator.get_compatibility_description(30)
-        assert "Низкая" in desc

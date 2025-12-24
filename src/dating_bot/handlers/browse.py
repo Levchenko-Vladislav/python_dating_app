@@ -3,11 +3,9 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-
 from src.dating_bot.services.recommendations import RecommendationService
 from src.dating_bot.bot.states import BrowsingState
 from src.dating_bot.bot.keyboards import main_menu_kb
-
 import asyncio
 
 router = Router()
@@ -18,24 +16,18 @@ recommendation_service = RecommendationService()
 async def start_browsing(message: Message, state: FSMContext):
     from src.dating_bot.services.test_service import TestService
     from src.dating_bot.services.user_service import UserService
-
     telegram_id = str(message.from_user.id)
     user_profile = await UserService.get_user_profile(telegram_id)
-
     if not user_profile or not user_profile.get('user'):
         await message.answer(
             "❌ Сначала заполни профиль через /start",
             reply_markup=main_menu_kb()
         )
         return
-
     user_id = user_profile['user'].id
-
     has_test = await TestService.has_completed_test(user_id)
-
     state_data = await state.get_data()
     has_test_in_state = state_data.get('test_completed', False)
-
     if not has_test and not has_test_in_state:
         await message.answer(
             "❌ Сначала пройди психологический тест!\n"
@@ -45,18 +37,15 @@ async def start_browsing(message: Message, state: FSMContext):
         return
     elif has_test and not state_data.get('test_completed'):
         await state.update_data(test_completed=True)
-
     await message.answer(
         "🔍 *Ищу подходящие анкеты...*\n\n"
         "Сейчас покажу людей с максимальной совместимостью!",
         parse_mode="Markdown"
     )
-
     recommendations = await recommendation_service.get_recommendations(
         user_id=message.from_user.id,
         limit=5
     )
-
     if not recommendations:
         await message.answer(
             "😔 Пока нет подходящих анкет.\n"
@@ -64,21 +53,17 @@ async def start_browsing(message: Message, state: FSMContext):
             reply_markup=main_menu_kb()
         )
         return
-
     await state.update_data(
         recommendations=recommendations,
         current_index=0,
         viewed_profiles=[]
     )
-
     await show_next_profile(message, state)
-
 
 async def show_next_profile(message: Message, state: FSMContext):
     data = await state.get_data()
     recommendations = data.get("recommendations", [])
     current_index = data.get("current_index", 0)
-
     if current_index >= len(recommendations):
         await message.answer(
             "🎯 На сегодня это все анкеты!\n"
@@ -87,7 +72,6 @@ async def show_next_profile(message: Message, state: FSMContext):
         )
         await state.clear()
         return
-
     profile = recommendations[current_index]
     profile_text = (
         f"👤 *{profile['name']}, {profile['age']}*\n"
@@ -96,16 +80,13 @@ async def show_next_profile(message: Message, state: FSMContext):
         f"💫 *Совместимость: {profile['compatibility']}%*\n\n"
         f"Анкета {current_index + 1} из {len(recommendations)}"
     )
-
     builder = InlineKeyboardBuilder()
     builder.button(text="❤️ Лайк", callback_data=f"like_{profile['id']}")
     builder.button(text="❌ Дизлайк", callback_data=f"dislike_{profile['id']}")
     builder.button(text="⏭️ Следующая", callback_data="next_profile")
     builder.button(text="⏹️ Стоп", callback_data="stop_browsing")
     builder.adjust(2)  # 2 кнопки в ряду
-
     photo_id = profile.get("photo_id")
-
     if not photo_id:
         await message.answer(
             f"🖼️ {profile_text}",
@@ -128,7 +109,6 @@ async def show_next_profile(message: Message, state: FSMContext):
                 reply_markup=builder.as_markup(),
                 parse_mode="Markdown"
             )
-
     await state.update_data(current_index=current_index + 1)
 
 
@@ -137,31 +117,24 @@ async def next_profile_handler(callback: CallbackQuery, state: FSMContext):
     await callback.answer("Загружаю следующую анкету...", show_alert=False)
     await show_next_profile(callback.message, state)
 
-
 @router.callback_query(F.data.startswith("like_"))
 async def process_like(callback: CallbackQuery, state: FSMContext, bot: Bot):
     try:
         await callback.answer("❤️ Лайк отправлен!", show_alert=False)
-
         profile_id = int(callback.data.split("_")[1])
-
         builder = InlineKeyboardBuilder()
         builder.button(text="❤️ Вы лайкнули", callback_data="already_liked")
         builder.button(text="❌ Дизлайк", callback_data=f"dislike_{profile_id}")
         builder.button(text="⏭️ Следующая", callback_data="next_profile")
         builder.adjust(2)
-
         try:
             await callback.message.edit_reply_markup(reply_markup=builder.as_markup())
         except Exception:
             pass
-
         match_result = await recommendation_service.like_profile(
             callback.from_user.id,
             profile_id
         )
-
-        print(f"📥 Результат лайка: {match_result}")
 
         if match_result.get("is_mutual"):
             await callback.message.answer(
@@ -254,16 +227,6 @@ async def process_dislike(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.in_(["already_liked", "already_disliked"]))
 async def handle_already_action(callback: CallbackQuery):
     await callback.answer("Вы уже выполнили это действие", show_alert=False)
-
-@router.callback_query(F.data == "start_speed_dating")
-async def start_speed_dating(callback: CallbackQuery, state: FSMContext):
-    await callback.answer("Скоро реализуем Speed Dating!")
-    await callback.message.answer(
-        "🚀 *Speed Dating*\n\n"
-        "Эта функция в разработке!\n"
-        "Скоро сможете задавать 5 вопросов друг другу.",
-        parse_mode="Markdown"
-    )
 
 @router.callback_query(F.data == "stop_browsing")
 async def stop_browsing(callback: CallbackQuery, state: FSMContext):

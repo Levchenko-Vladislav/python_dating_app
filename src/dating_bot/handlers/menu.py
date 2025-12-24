@@ -1,22 +1,17 @@
 from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
-from src.dating_bot.bot.states import Profile
-from src.dating_bot.bot.keyboards import edit_menu_kb, main_menu_kb
-
+from src.dating_bot.bot.keyboards import main_menu_kb
 from src.dating_bot.services.user_service import UserService
 from src.dating_bot.services.test_service import TestService
-from src.dating_bot.utils.data_mappers import map_gender_to_ui, map_target_gender_to_ui
-from src.dating_bot.utils.data_mappers import map_goal_to_db, map_goal_to_ui
+from src.dating_bot.utils.data_mappers import map_gender_to_ui, map_target_gender_to_ui, map_goal_to_ui
 
 router = Router()
-
 
 @router.message(F.text == "🧠 Пройти тест")
 async def start_test_from_menu(message: Message, state: FSMContext):
     from src.dating_bot.handlers.psychological_test import start_test_command
     await start_test_command(message, state)
-
 
 @router.message(F.text == "👤 Мой профиль")
 async def show_my_profile_menu(message: Message, state: FSMContext):
@@ -25,12 +20,9 @@ async def show_my_profile_menu(message: Message, state: FSMContext):
 
     if user_profile_data and user_profile_data.get('user'):
         user = user_profile_data['user']
-
         has_completed_test = await TestService.has_completed_test(user.id)
-
         state_data = await state.get_data()
         goal_text = map_goal_to_ui(user.goal) if user.goal else "Не указано"
-
         test_status = "✅ Тест пройден" if has_completed_test else "❌ Тест не пройден"
 
         test_results_text = ""
@@ -63,10 +55,7 @@ async def show_my_profile_menu(message: Message, state: FSMContext):
         else:
             await message.answer(profile_text, parse_mode="Markdown")
 
-        await message.answer(
-            "Выбери действие:",
-            reply_markup=main_menu_kb()
-        )
+        await message.answer("Выбери действие:", reply_markup=main_menu_kb())
     else:
         data = await state.get_data()
         if data.get("photo_id"):
@@ -84,11 +73,6 @@ async def show_my_profile_menu(message: Message, state: FSMContext):
                 ),
                 parse_mode="Markdown"
             )
-            await message.answer(
-                "Выбери действие:",
-                reply_markup=main_menu_kb()
-            )
+            await message.answer("Выбери действие:", reply_markup=main_menu_kb())
         else:
             await message.answer("Профиль не заполнен. Напиши /start")
-
-

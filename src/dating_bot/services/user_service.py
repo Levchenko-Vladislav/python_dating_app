@@ -157,27 +157,9 @@ class UserService:
             }
 
 async def delete_user_completely(telegram_id: str) -> bool:
-    try:
-        from src.dating_bot.database.session import AsyncSessionLocal
-        from src.dating_bot.database.repositories.user_repository import UserRepository
-        
-        async with AsyncSessionLocal() as session:
-            repo = UserRepository(session)
-            result = await repo.delete_user_completely(telegram_id)
-            
-            if result:
-                # Также можно очистить фото из Telegram (опционально)
-                try:
-                    from src.dating_bot.bot.bot import bot_instance
-                    user_profile = await get_user_profile(telegram_id)
-                    if user_profile and user_profile.get('user') and user_profile['user'].photo_id:
-                        # Здесь можно добавить логику удаления фото
-                        pass
-                except:
-                    pass
-            
-            return result
-            
-    except Exception as e:
-        logger.error(f"Ошибка в сервисе удаления пользователя: {e}")
-        return False
+    from src.dating_bot.database.session import AsyncSessionLocal
+    from src.dating_bot.database.repositories.user_repository import UserRepository
+    
+    async with AsyncSessionLocal() as session:
+        repo = UserRepository(session)
+        return await repo.delete_user_completely(telegram_id)

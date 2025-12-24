@@ -1,12 +1,7 @@
-import logging
 from typing import Optional, Dict, Any
-
 from src.dating_bot.database.session import AsyncSessionLocal
 from src.dating_bot.database.repositories.test_result_repository import TestResultRepository
 from src.dating_bot.services.test_calculator import calculate_category_scores
-
-logger = logging.getLogger(__name__)
-
 
 class TestService:
     @staticmethod
@@ -17,9 +12,7 @@ class TestService:
     ) -> Dict[str, Any]:
         async with AsyncSessionLocal() as session:
             repo = TestResultRepository(session)
-
             category_scores = calculate_category_scores(answers)
-
             test_result = await repo.save_test_result(
                 user_id=user_id,
                 answers=answers,

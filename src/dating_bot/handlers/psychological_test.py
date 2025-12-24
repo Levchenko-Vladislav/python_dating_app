@@ -4,15 +4,13 @@ from aiogram.types import Message, ReplyKeyboardRemove
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from datetime import datetime
-
-from src.dating_bot.bot.states import PsychologicalTest, Profile
+from src.dating_bot.bot.states import PsychologicalTest
 from src.dating_bot.bot.keyboards import (
     test_answer_kb, 
     start_test_kb,
     test_results_kb,
     confirm_retake_kb,
-    edit_menu_kb,
-    test_results_kb
+    main_menu_kb
 )
 from src.dating_bot.data.test_questions import PSYCHOLOGICAL_TEST_QUESTIONS
 from src.dating_bot.services.test_calculator import (
@@ -25,7 +23,6 @@ from src.dating_bot.services.test_calculator import (
 
 router = Router()
 TOTAL_QUESTIONS = get_total_questions()
-
 
 @router.message(F.text == "📝 Да!")
 @router.message(Command("start_test"))
@@ -51,7 +48,6 @@ async def start_test_command(message: Message, state: FSMContext):
     )
     await state.set_state(PsychologicalTest.welcome)
 
-
 @router.message(PsychologicalTest.welcome, F.text == "📝 Начать тест")
 async def begin_test(message: Message, state: FSMContext):
     await state.update_data(
@@ -61,7 +57,6 @@ async def begin_test(message: Message, state: FSMContext):
         test_completed=False
     )
     await show_question(message, state)
-
 
 async def show_question(message: Message, state: FSMContext):
     data = await state.get_data()
@@ -78,7 +73,6 @@ async def show_question(message: Message, state: FSMContext):
         parse_mode="Markdown"
     )
     await state.set_state(PsychologicalTest.in_progress)
-
 
 @router.message(PsychologicalTest.in_progress, F.text.startswith(("1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣")))
 async def process_test_answer(message: Message, state: FSMContext):
@@ -97,7 +91,6 @@ async def process_test_answer(message: Message, state: FSMContext):
     answers = data.get("test_answers", {})
     answers[current_q] = answer_value
     await state.update_data(test_answers=answers, current_question=current_q + 1)
-    
     await show_question(message, state)
 
 @router.message(PsychologicalTest.in_progress, F.text == "⏭️ Пропустить вопрос")
@@ -108,7 +101,6 @@ async def skip_question(message: Message, state: FSMContext):
     await state.update_data(current_question=current_q + 1)
     await asyncio.sleep(0.5)
     await show_question(message, state)
-
 
 async def finish_test(message: Message, state: FSMContext):
     data = await state.get_data()
@@ -138,7 +130,6 @@ async def finish_test(message: Message, state: FSMContext):
 
     if user_profile and user_profile.get('user'):
         user_id = user_profile['user'].id
-
         test_result = await TestService.save_test_results(
             user_id=user_id,
             answers=answers,
@@ -176,7 +167,6 @@ async def retake_test_handler(message: Message, state: FSMContext):
     )
     await state.set_state(PsychologicalTest.confirm_retake)
 
-
 @router.message(PsychologicalTest.confirm_retake, F.text == "✅ Да, начать заново")
 async def confirm_retake(message: Message, state: FSMContext):
     await state.update_data(
@@ -187,12 +177,8 @@ async def confirm_retake(message: Message, state: FSMContext):
         test_started_at=None,
         test_completed_at=None
     )
-    await message.answer(
-        "Начинаем тест заново! ✨",
-        reply_markup=ReplyKeyboardRemove()
-    )
+    await message.answer("Начинаем тест заново! ✨", reply_markup=ReplyKeyboardRemove())
     await begin_test(message, state)
-
 
 @router.message(PsychologicalTest.confirm_retake, F.text == "❌ Нет, отменить")
 async def cancel_retake(message: Message, state: FSMContext):
@@ -210,6 +196,7 @@ async def edit_profile_from_results(message: Message, state: FSMContext):
         "Что хочешь изменить в профиле?",
         reply_markup=edit_menu_kb()
     )
+    from src.dating_bot.bot.states import Profile
     await state.set_state(Profile.edit_field)
 
 @router.message(PsychologicalTest.results, F.text == "👀 Смотреть анкеты")
@@ -220,9 +207,4 @@ async def browse_profiles_after_test(message: Message, state: FSMContext):
 
 @router.message(PsychologicalTest.results, F.text == "📋 Главное меню")
 async def back_to_menu_after_test(message: Message, state: FSMContext):
-    from src.dating_bot.bot.keyboards import main_menu_kb
-    await message.answer(
-        "✅ Возвращаю в главное меню:",
-        reply_markup=main_menu_kb()
-    )
-
+    await message.answer("✅ Возвращаю в главное меню:", reply_markup=main_menu_kb())
