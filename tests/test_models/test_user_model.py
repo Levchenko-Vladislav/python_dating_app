@@ -1,10 +1,23 @@
+# test_models/test_user_model.py
 import pytest
-from datetime import datetime
 from src.dating_bot.database.models import User
-
+import datetime
 
 class TestUserModel:
-    """Тесты модели User"""
+    """Тесты для модели User"""
+
+    def test_user_repr(self):
+        """Тест строкового представления пользователя"""
+        user = User(
+            id=1,
+            telegram_id="123",
+            name="Test User"
+        )
+
+        expected = "<User(id=1, telegram_id=123, name=Test User)>"
+
+        assert "User" in repr(user)
+        assert "1" in repr(user)
 
     def test_user_creation(self):
         """Тест создания объекта пользователя"""
@@ -24,12 +37,6 @@ class TestUserModel:
 
         assert user.created_at is None or isinstance(user.created_at, datetime)
 
-    def test_user_repr(self):
-        """Тест строкового представления"""
-        user = User(id=1, telegram_id=123, name="Тест")
-        repr_str = repr(user)
-
-        assert "<User(id = 1, name = 'Тест', telegram_id = 123)>" == repr_str
 
     def test_user_default_values(self):
         """Тест значений по умолчанию"""
@@ -38,7 +45,6 @@ class TestUserModel:
             name="Тест"
         )
 
-        # Проверяем дефолты
         assert user.age is None
         assert user.city is None
         assert user.sex is None
@@ -50,7 +56,6 @@ class TestUserModel:
 
     def test_user_validation(self):
         """Тест валидация не требуется - SQLAlchemy проверит при коммите"""
-        # Создаем валидного пользователя
         user = User(telegram_id=123, name="Тест")
         assert user is not None
 

@@ -11,9 +11,8 @@ from src.dating_bot.database.session import Base
 from src.dating_bot.database.models import User
 
 
-@pytest_asyncio.fixture(scope="function")  # function - ОТДЕЛЬНАЯ БД ДЛЯ КАЖДОГО ТЕСТА!
+@pytest_asyncio.fixture(scope="function")
 async def test_engine():
-    """Движок БД - СОЗДАЕТСЯ ЗАНОВО ДЛЯ КАЖДОГО ТЕСТА"""
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
         echo=False,
@@ -21,13 +20,11 @@ async def test_engine():
         future=True
     )
 
-    # Создаем таблицы
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     yield engine
 
-    # Удаляем таблицы
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
@@ -36,7 +33,6 @@ async def test_engine():
 
 @pytest_asyncio.fixture(scope="function")
 async def test_session(test_engine):
-    """Сессия БД - НОВАЯ ДЛЯ КАЖДОГО ТЕСТА"""
     async_session = async_sessionmaker(
         test_engine,
         class_=AsyncSession,
@@ -51,14 +47,12 @@ async def test_session(test_engine):
 
 @pytest_asyncio.fixture(scope="function")
 async def user_repository(test_session):
-    """Репозиторий - НОВЫЙ ДЛЯ КАЖДОГО ТЕСТА"""
     from src.dating_bot.database.repositories.user_repository import UserRepository
     return UserRepository(test_session)
 
 
 @pytest_asyncio.fixture(scope="function")
 async def sample_user(test_session):
-    """Тестовый пользователь - СОЗДАЕТСЯ ЗАНОВО ДЛЯ КАЖДОГО ТЕСТА"""
     user = User(
         telegram_id=1001,
         name="Тестовый Пользователь",
@@ -79,7 +73,6 @@ async def sample_user(test_session):
 
 @pytest_asyncio.fixture(scope="function")
 async def sample_users(test_session):
-    """Несколько тестовых пользователей - ДЛЯ СТАТИСТИКИ"""
     users = [
         User(
             telegram_id=1001,

@@ -7,7 +7,6 @@ import logging
 
 from src.dating_bot.database.models import User
 
-# Настройка логгера
 logger = logging.getLogger(__name__)
 
 
@@ -25,11 +24,13 @@ class UserRepository:
 
     async def create_user(
             self,
-            telegram_id: int,
             name: str,
+            telegram_id: str,
+            username: Optional[str] = None,
             age: Optional[int] = None,
             city: Optional[str] = None,
             sex: Optional[str] = None,
+            goal: Optional[str] = None,
             photo_id: Optional[str] = None
     ) -> Optional[User]:
         try:
@@ -41,10 +42,12 @@ class UserRepository:
 
             new_user = User(
                 telegram_id=telegram_id,
+                username=username,
                 name=name,
                 age=age,
                 city=city,
                 sex=sex,
+                goal=goal,
                 photo_id=photo_id,
                 created_at=datetime.now(timezone.utc),
                 is_active=True
@@ -66,7 +69,7 @@ class UserRepository:
             logger.error(f"Неизвестная ошибка: {e}")
             return None
 
-    async def get_user_by_telegram_id(self, telegram_id: int) -> Optional[User]:
+    async def get_user_by_telegram_id(self, telegram_id: str) -> Optional[User]:
         """
         Найти пользователя по Telegram ID
         """
@@ -76,15 +79,26 @@ class UserRepository:
             )
             user = result.scalar_one_or_none()
 
-            if user:
-                logger.debug(f"Найден пользователь: telegram_id={telegram_id}")
-            else:
-                logger.debug(f"Пользователь не найден: telegram_id={telegram_id}")
-
             return user
 
         except Exception as e:
             logger.error(f"Ошибка поиска пользователя: {e}")
+            return None
+
+    async def get_user_by_username(self, username: str) -> Optional[User]:
+        """
+        Найти пользователя по username (с @)
+        """
+        try:
+            result = await self.session.execute(
+                select(User).where(User.username == username)
+            )
+            user = result.scalar_one_or_none()
+
+            return user
+
+        except Exception as e:
+            logger.error(f"Ошибка поиска пользователя по username: {e}")
             return None
 
     async def get_user_by_id(self, user_id: int) -> Optional[User]:
@@ -102,7 +116,7 @@ class UserRepository:
 
     async def update_user(
             self,
-            telegram_id: int,
+            telegram_id: str,
             **kwargs
     ) -> Optional[User]:
         """
@@ -116,8 +130,8 @@ class UserRepository:
                 return None
 
             allowed_fields = {'name', 'age', 'city', 'sex', 'photo_id',
-                              'is_active', 'search_sex', 'min_age', 'max_age',
-                              'only_same_city'}
+                              'is_active', 'search_sex', 'min_age', 'max_age','goal',
+                              'only_same_city', 'username', 'telegram_id'}
 
             update_data = {k: v for k, v in kwargs.items() if k in allowed_fields}
 
@@ -143,32 +157,100 @@ class UserRepository:
             logger.error(f"Ошибка обновления пользователя: {e}")
             return None
 
-    async def delete_user(self, telegram_id: int) -> bool:
+    async def delete_user_completely(self, telegram_id: str) -> bool:
         """
-        Удалить пользователя (мягкое удаление - деактивация)
+        ПОЛНОЕ удаление пользователя и всех связанных данных
+        
+        Удаляет:
+        1. Результаты теста (user_test_results)
+        2. Лайки (likes)
+        3. Мэтчи (matches)
+        4. Сессии спиддейтинга (speed_dating_sessions)
+        5. Самого пользователя (users)
+        
+        Args:
+            telegram_id: Telegram ID пользователя
+        
+        Returns:
+            bool: True если успешно, False если ошибка
         """
         try:
+            # Находим пользователя
             user = await self.get_user_by_telegram_id(telegram_id)
             if not user:
+                logger.warning(f"Пользователь не найден для полного удаления: {telegram_id}")
                 return False
+            
+            user_id = user.id
+            
+            # Удаляем связанные данные в правильном порядке
+            from sqlalchemy import delete
+            from src.dating_bot.database.models import (
+                UserTestResult, Like, Match, SpeedDatingSession
+            )
+            
+            # 1. Удаляем сессии спиддейтинга
+            await self.session.execute(
+                delete(SpeedDatingSession).where(
+                    (SpeedDatingSession.user1_id == user_id) |
+                    (SpeedDatingSession.user2_id == user_id)
+                )
+            )
+            
+            # 2. Удаляем мэтчи
+            await self.session.execute(
+                delete(Match).where(
+                    (Match.user1_id == user_id) |
+                    (Match.user2_id == user_id)
+                )
+            )
 
-            # Мягкое удаление - просто деактивируем
-            user.is_active = False
+            # 3. Удаляем лайки (где пользователь был отправителем или получателем)
+            await self.session.execute(
+                delete(Like).where(
+                    (Like.user_from_id == user_id) |
+                    (Like.user_to_id == user_id)
+                )
+            )
+            
+            # 4. Удаляем результаты теста
+            await self.session.execute(
+                delete(UserTestResult).where(
+                    UserTestResult.user_id == user_id
+                )
+            )
+            
+            # 5. Удаляем самого пользователя
+            await self.session.execute(
+                delete(User).where(
+                    User.id == user_id
+                )
+            )
+            
             await self.session.commit()
-
-            logger.info(f"Пользователь деактивирован: {telegram_id}")
+            
+            logger.info(f"✅ ПОЛНОСТЬЮ удален пользователь: ID={user_id}, Telegram={telegram_id}, Имя={user.name}")
             return True
-
+            
         except Exception as e:
             await self.session.rollback()
-            logger.error(f"Ошибка удаления пользователя: {e}")
+            logger.error(f"❌ Ошибка полного удаления пользователя {telegram_id}: {e}")
             return False
+
+    async def user_exists(self, telegram_id: str) -> bool:
+        """
+        Проверить, существует ли пользователь
+        (альтернативное название для check_user_exists)
+        """
+        user = await self.get_user_by_telegram_id(telegram_id)
+        return user is not None
 
     async def get_all_active_users(self) -> List[User]:
         """
         Получить всех активных пользователей
         """
         try:
+            from sqlalchemy import select
             result = await self.session.execute(
                 select(User).where(User.is_active == True)
             )
@@ -177,23 +259,11 @@ class UserRepository:
             logger.error(f"Ошибка получения активных пользователей: {e}")
             return []
 
-    async def user_exists(self, telegram_id: int) -> bool:
-        """
-        Проверить, существует ли пользователь
-        """
-        user = await self.get_user_by_telegram_id(telegram_id)
-        return user is not None
-
     async def count_users(self) -> int:
-        """
-        Получить общее количество пользователей
-
-        """
+        """Подсчитать общее количество пользователей"""
         try:
-            from sqlalchemy import func
-            result = await self.session.execute(
-                select(func.count(User.id))
-            )
+            from sqlalchemy import func, select
+            result = await self.session.execute(select(func.count(User.id)))
             return result.scalar()
         except Exception as e:
             logger.error(f"Ошибка подсчета пользователей: {e}")

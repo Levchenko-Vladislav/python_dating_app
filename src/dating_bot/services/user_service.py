@@ -9,25 +9,20 @@ logger = logging.getLogger(__name__)
 
 
 class UserService:
-    """Сервис для работы с пользователями (бизнес-логика)"""
-
     @staticmethod
     async def register_user(
-            telegram_id: int,
             name: str,
+            telegram_id: str,
+            username: Optional[str] = None,
             age: Optional[int] = None,
             city: Optional[str] = None,
             sex: Optional[str] = None,
-            photo_id: Optional[str] = None
+            photo_id: Optional[str] = None,
+            goal: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Зарегистрировать нового пользователя
-
-        """
         async with AsyncSessionLocal() as session:
             repo = UserRepository(session)
 
-            # Проверяем, не зарегистрирован ли уже
             existing = await repo.get_user_by_telegram_id(telegram_id)
             if existing:
                 logger.info(f"Пользователь {telegram_id} уже зарегистрирован")
@@ -38,13 +33,14 @@ class UserService:
                     "is_new": False
                 }
 
-            # Создаем нового пользователя
             user = await repo.create_user(
                 telegram_id=telegram_id,
+                username=username,
                 name=name,
                 age=age,
                 city=city,
                 sex=sex,
+                goal=goal,
                 photo_id=photo_id
             )
 
@@ -66,10 +62,7 @@ class UserService:
                 }
 
     @staticmethod
-    async def get_user_profile(telegram_id: int) -> Optional[Dict[str, Any]]:
-        """
-        Получить профиль пользователя в удобном формате для бота
-        """
+    async def get_user_profile(telegram_id: str) -> Optional[Dict[str, Any]]:
         async with AsyncSessionLocal() as session:
             repo = UserRepository(session)
             user = await repo.get_user_by_telegram_id(telegram_id)
@@ -77,16 +70,15 @@ class UserService:
             if not user:
                 return None
 
-            # Форматируем данные
             days_on_platform = (datetime.utcnow() - user.created_at).days
             created_str = user.created_at.strftime("%d.%m.%Y")
 
-            # Формируем текст профиля
             profile_text = (
                 f"👤 Имя: {user.name}\n"
                 f"🎂 Возраст: {user.age if user.age else 'Не указан'}\n"
                 f"🏙 Город: {user.city if user.city else 'Не указан'}\n"
                 f"👫 Пол: {user.sex if user.sex else 'Не указан'}\n"
+                f"📱 Telegram: {user.username if user.username else f'ID: {telegram_id}'}\n"
                 f"📅 В боте с: {created_str} ({days_on_platform} дней)\n"
                 f"⭐ Статус: {'Активен ✅' if user.is_active else 'Неактивен ❌'}"
             )
@@ -101,17 +93,13 @@ class UserService:
 
     @staticmethod
     async def update_user_profile(
-            telegram_id: int,
+            telegram_id: str,
             **fields
     ) -> Dict[str, Any]:
-        """
-        Обновить профиль пользователя
 
-        """
         async with AsyncSessionLocal() as session:
             repo = UserRepository(session)
 
-            # Проверяем существование пользователя
             user = await repo.get_user_by_telegram_id(telegram_id)
             if not user:
                 return {
@@ -120,7 +108,6 @@ class UserService:
                     "user": None
                 }
 
-            # Обновляем поля
             updated = await repo.update_user(telegram_id, **fields)
 
             if updated:
@@ -136,46 +123,16 @@ class UserService:
                     "user": None
                 }
 
-    @staticmethod
-    async def delete_user_profile(telegram_id: int) -> Dict[str, Any]:
-        """
-        Удалить/деактивировать профиль пользователя
 
-        """
-        async with AsyncSessionLocal() as session:
-            repo = UserRepository(session)
-
-            success = await repo.delete_user(telegram_id)
-
-            if success:
-                return {
-                    "success": True,
-                    "message": "Профиль деактивирован",
-                    "telegram_id": telegram_id
-                }
-            else:
-                return {
-                    "success": False,
-                    "message": "Пользователь не найден",
-                    "telegram_id": telegram_id
-                }
 
     @staticmethod
-    async def check_user_exists(telegram_id: int) -> bool:
-        """
-        Проверить, зарегистрирован ли пользователь
-
-        """
+    async def check_user_exists(telegram_id: str) -> bool:
         async with AsyncSessionLocal() as session:
             repo = UserRepository(session)
             return await repo.user_exists(telegram_id)
 
     @staticmethod
     async def get_user_stats() -> Dict[str, Any]:
-        """
-        Получить статистику пользователей (для админа)
-
-        """
         async with AsyncSessionLocal() as session:
             repo = UserRepository(session)
 
@@ -183,11 +140,9 @@ class UserService:
             active_users = await repo.get_all_active_users()
             active_count = len(active_users)
 
-            # Средний возраст
             ages = [u.age for u in active_users if u.age]
             avg_age = sum(ages) / len(ages) if ages else 0
 
-            # Самые популярные города
             from collections import Counter
             cities = [u.city for u in active_users if u.city]
             city_counter = Counter(cities)
@@ -200,3 +155,11 @@ class UserService:
                 "average_age": round(avg_age, 1),
                 "top_cities": top_cities
             }
+
+async def delete_user_completely(telegram_id: str) -> bool:
+    from src.dating_bot.database.session import AsyncSessionLocal
+    from src.dating_bot.database.repositories.user_repository import UserRepository
+    
+    async with AsyncSessionLocal() as session:
+        repo = UserRepository(session)
+        return await repo.delete_user_completely(telegram_id)

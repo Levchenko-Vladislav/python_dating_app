@@ -3,3 +3,6 @@
 dating_app.db
 __pycache__/
 *.py[cod]
+*.pyc
+.DS_Store
+venv/
